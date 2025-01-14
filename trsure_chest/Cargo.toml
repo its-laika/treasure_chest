@@ -1,0 +1,29 @@
+[package]
+name = "trsure_chest"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [".", "base", "entity", "migration"]
+
+[dependencies]
+axum = { version = "0.8.1", features = ["multipart", "macros"] }
+base = { path = "base" }
+chrono = "0.4.39"
+entity = { path = "entity" }
+env_logger = "0.11.6"
+futures = "0.3"
+log = "0.4.25"
+migration = { path = "migration" }
+sea-orm = { version = "1.1.0", features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-mysql",
+    "with-chrono",
+    "with-uuid",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7.13", features = ["io"] }
+uuid = { version = "1.12.0", features = ["v4"] }
