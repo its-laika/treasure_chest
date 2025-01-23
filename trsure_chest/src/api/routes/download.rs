@@ -23,8 +23,9 @@ pub async fn handler(
     header_map: HeaderMap,
     body: Json<RequestBody>,
 ) -> impl IntoResponse {
-    let Ok(request_ip) = get_request_ip(&header_map) else {
-        return Err(StatusCode::BAD_GATEWAY);
+    let request_ip = match get_request_ip(&header_map) {
+        Ok(ip) => ip,
+        Err(error) => return_logged!(error, StatusCode::BAD_GATEWAY),
     };
 
     // TODO: Rate limit

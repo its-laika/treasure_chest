@@ -25,8 +25,9 @@ pub async fn handler(
     header_map: HeaderMap,
     request: Request,
 ) -> impl IntoResponse {
-    let Ok(request_ip) = get_request_ip(&header_map) else {
-        return Err(StatusCode::BAD_GATEWAY);
+    let request_ip = match get_request_ip(&header_map) {
+        Ok(ip) => ip,
+        Err(error) => return_logged!(error, StatusCode::BAD_GATEWAY),
     };
 
     match is_recent_uploads_limit_reached(&database_connection, &request_ip).await {

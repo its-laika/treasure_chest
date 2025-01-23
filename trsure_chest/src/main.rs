@@ -1,5 +1,5 @@
 use configuration::CONFIGURATION;
-use log::{error, info};
+use log::{error, info, LevelFilter};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DbErr};
 use std::time::Duration;
@@ -26,6 +26,7 @@ async fn main() -> Result<(), DbErr> {
     let mut connect_options = ConnectOptions::new(connection_string);
 
     connect_options
+        .sqlx_logging_level(LevelFilter::Debug)
         .max_connections(5)
         .min_connections(1)
         .connect_timeout(Duration::from_secs(8))
@@ -38,7 +39,8 @@ async fn main() -> Result<(), DbErr> {
     info!("Migrating database...");
     Migrator::up(&database_connection, None).await?;
 
-    info!("Starting API...");
+    info!("Starting API on {}...", &CONFIGURATION.listening_address);
+
     if let Err(error) = api::listen(database_connection.clone()).await {
         error!("API failed: {error}");
     }
