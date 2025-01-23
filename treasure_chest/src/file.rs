@@ -1,6 +1,7 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
 use crate::encryption::{Encoding, Encryption, EncryptionData};
+use std::io;
 use std::path::PathBuf;
 use std::{
     fs::{self, OpenOptions},
@@ -64,13 +65,12 @@ pub fn delete_file(base_name: &str) -> Result<(), Error> {
         Err(error) => return Err(Error::DeletingFileFailed(error)),
     };
 
-    if metadata.is_file() {
-        if let Err(error) = fs::remove_file(&file_path) {
-            return Err(Error::DeletingFileFailed(error));
-        }
-    } else if let Err(error) = fs::remove_dir_all(&file_path) {
-        return Err(Error::DeletingFileFailed(error));
+    if !metadata.is_file() {
+        return Err(Error::DeletingFileFailed(io::Error::new(
+            io::ErrorKind::IsADirectory,
+            "Not a file but directory given",
+        )));
     }
 
-    Ok(())
+    fs::remove_file(&file_path).map_err(Error::DeletingFileFailed)
 }

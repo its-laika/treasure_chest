@@ -7,15 +7,23 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, column_type = "Binary(16)")]
     pub id: Vec<u8>,
+    #[sea_orm(unique)]
     pub hash: String,
-    pub downloader_ip: Option<String>,
     pub uploader_ip: String,
     pub uploaded_at: DateTime,
     pub download_until: DateTime,
-    pub downloaded_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "super::access_log::Entity")]
+    AccessLog,
+}
+
+impl Related<super::access_log::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AccessLog.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

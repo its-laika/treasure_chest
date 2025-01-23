@@ -1,4 +1,4 @@
-use crate::database::{is_recent_uploads_limit_reached, store};
+use crate::database::{is_recent_uploads_limit_reached, store_file};
 use crate::error::Error;
 use crate::file::store_data;
 use crate::hash::{Hash, Hashing};
@@ -53,7 +53,7 @@ pub async fn handler(
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    if let Err(error) = store(&database_connection, &id, &hash, &request_ip).await {
+    if let Err(error) = store_file(&database_connection, &id, &hash, &request_ip).await {
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 

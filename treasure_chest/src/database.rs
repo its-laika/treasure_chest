@@ -1,11 +1,10 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
 use chrono::Utc;
-use entity::{ActiveModel, Column, File, Model};
-use sea_orm::{
-    ActiveValue::NotSet, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set,
-};
-use sea_orm::{ColumnTrait, FromQueryResult};
+use entity::{self, access_log, file};
+use sea_orm::sea_query::Query;
+use sea_orm::{ColumnTrait, Condition, FromQueryResult};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set};
 use uuid::Uuid;
 
 #[derive(FromQueryResult)]
@@ -16,31 +15,22 @@ struct CountResult {
 pub async fn get_downloadable_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
-) -> Result<Option<Model>, Error> {
-    File::find()
-        .filter(Column::Id.eq(*id))
-        .filter(Column::DownloadUntil.gte(Utc::now()))
-        .filter(Column::DownloadedAt.is_null())
+) -> Result<Option<file::Model>, Error> {
+    entity::File::find()
+        .filter(file::Column::Id.eq(*id))
+        .filter(file::Column::DownloadUntil.gte(Utc::now()))
+        .filter(
+            file::Column::Id.not_in_subquery(
+                Query::select()
+                    .column(access_log::Column::FileId)
+                    .from(access_log::Entity)
+                    .cond_where(Condition::all().add(access_log::Column::Successful.eq(1)))
+                    .to_owned(),
+            ),
+        )
         .one(database_connection)
         .await
         .map_err(Error::DatabaseOperationFailed)
-}
-
-pub async fn mark_downloaded(
-    database_connection: &DatabaseConnection,
-    mut file: ActiveModel,
-    ip: &str,
-) -> Result<(), Error> {
-    file.downloaded_at = Set(Some(Utc::now().naive_utc()));
-    file.downloader_ip = Set(Some(ip.into()));
-    file.hash = Set("".into());
-
-    File::update(file)
-        .exec(database_connection)
-        .await
-        .map_err(Error::DatabaseOperationFailed)?;
-
-    Ok(())
 }
 
 pub async fn is_recent_uploads_limit_reached(
@@ -51,11 +41,11 @@ pub async fn is_recent_uploads_limit_reached(
         .checked_sub_days(CONFIGURATION.recent_uploads_timespan)
         .ok_or(Error::DateCalculationFailed)?;
 
-    let count = File::find()
+    let count = entity::File::find()
         .select_only()
-        .column_as(Column::Id.count(), "count")
-        .filter(Column::UploaderIp.eq(ip))
-        .filter(Column::UploadedAt.gte(min_uploaded_at.naive_utc()))
+        .column_as(file::Column::Id.count(), "count")
+        .filter(file::Column::UploaderIp.eq(ip))
+        .filter(file::Column::UploadedAt.gte(min_uploaded_at.naive_utc()))
         .into_model::<CountResult>()
         .one(database_connection)
         .await
@@ -66,7 +56,7 @@ pub async fn is_recent_uploads_limit_reached(
     Ok(count >= CONFIGURATION.recent_uploads_maximum.into())
 }
 
-pub async fn store(
+pub async fn store_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
     hash: &str,
@@ -78,17 +68,37 @@ pub async fn store(
         .checked_add_days(CONFIGURATION.file_lifetime)
         .ok_or(Error::DateCalculationFailed)?;
 
-    let file = ActiveModel {
+    let file = file::ActiveModel {
         id: Set((*id).into()),
         hash: Set(hash.into()),
-        downloader_ip: NotSet,
         uploader_ip: Set(uploader_ip.into()),
         uploaded_at: Set(now.naive_utc()),
         download_until: Set(download_until.naive_utc()),
-        downloaded_at: NotSet,
     };
 
-    File::insert(file)
+    entity::File::insert(file)
+        .exec(database_connection)
+        .await
+        .map_err(Error::DatabaseOperationFailed)?;
+
+    Ok(())
+}
+
+pub async fn store_access_log(
+    database_connection: &DatabaseConnection,
+    ip: &str,
+    file_id: &Uuid,
+    successful: bool,
+) -> Result<(), Error> {
+    let log = access_log::ActiveModel {
+        id: Set(Uuid::new_v4().into()),
+        ip: Set(ip.into()),
+        file_id: Set((*file_id).into()),
+        date_time: Set(Utc::now().naive_utc()),
+        successful: Set(if successful { 1 } else { 0 }),
+    };
+
+    entity::AccessLog::insert(log)
         .exec(database_connection)
         .await
         .map_err(Error::DatabaseOperationFailed)?;

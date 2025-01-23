@@ -1,4 +1,4 @@
-use crate::database::{get_downloadable_file, mark_downloaded};
+use crate::database::{get_downloadable_file, store_access_log};
 use crate::file::{delete_file, load_encrypted_data};
 use crate::request::get_request_ip;
 use crate::return_logged;
@@ -8,7 +8,7 @@ use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::{http::StatusCode, Json};
 use log::error;
-use sea_orm::{DatabaseConnection, IntoActiveModel};
+use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -45,13 +45,17 @@ pub async fn handler(
     };
 
     let Ok(key) = get_validated_key(&body.key, &file.hash) else {
+        if let Err(error) =
+            store_access_log(&database_connection, &request_ip, &file_id, false).await
+        {
+            return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
+        }
+
         return Err(StatusCode::UNAUTHORIZED);
     };
 
-    if let Err(error) =
-        mark_downloaded(&database_connection, file.into_active_model(), &request_ip).await
-    {
-        return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
+    if let Err(error) = store_access_log(&database_connection, &request_ip, &file_id, true).await {
+        return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR)
     }
 
     let content = match load_encrypted_data(&file_id.to_string(), &key) {

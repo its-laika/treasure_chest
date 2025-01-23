@@ -2,7 +2,7 @@ use configuration::CONFIGURATION;
 use log::{error, info, LevelFilter};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DbErr};
-use std::time::Duration;
+use std::{process::exit, time::Duration};
 
 mod api;
 mod configuration;
@@ -21,7 +21,7 @@ async fn main() -> Result<(), DbErr> {
     /* Init configuration */
     let connection_string = &CONFIGURATION.connection_string;
 
-    info!("Connecting to database...");
+    info!("Connecting to database (connection timeout is 8 secs)...");
 
     let mut connect_options = ConnectOptions::new(connection_string);
 
@@ -34,7 +34,10 @@ async fn main() -> Result<(), DbErr> {
         .idle_timeout(Duration::from_secs(8))
         .max_lifetime(Duration::from_secs(8));
 
-    let database_connection = Database::connect(connect_options).await?;
+    let Ok(database_connection) = Database::connect(connect_options).await else {
+        error!("Could not connect to database. Bye.");
+        exit(1);
+    };
 
     info!("Migrating database...");
     Migrator::up(&database_connection, None).await?;
