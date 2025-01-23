@@ -1,7 +1,33 @@
 use chrono::Days;
-use std::{path::PathBuf, sync::LazyLock};
+use config::{Environment, File, FileFormat};
+use log::error;
+use serde::Deserialize;
+use std::{path::PathBuf, process::exit, sync::LazyLock};
+
+pub const CONFIG_FILE_NAME: &str = "config.json";
+pub const CONFIG_ENV_PREFIX: &str = "TREASURE_CHEST";
 
 pub static CONFIGURATION: LazyLock<Configuration> = LazyLock::new(get_configuration);
+
+#[derive(Deserialize)]
+struct RawConfiguration {
+    #[serde(rename = "ConnectionString")]
+    pub connection_string: String,
+    #[serde(rename = "BindTo")]
+    pub listening_address: String,
+    #[serde(rename = "FilePath")]
+    pub file_path: PathBuf,
+    #[serde(rename = "FileLifetime")]
+    pub file_lifetime: u64,
+    #[serde(rename = "RecentUploadsTimespan")]
+    pub recent_uploads_timespan: u64,
+    #[serde(rename = "RecentUploadsMaximum")]
+    pub recent_uploads_maximum: u32,
+    #[serde(rename = "IPHeaderName")]
+    pub ip_header_name: String,
+    #[serde(rename = "BodyMaxSize")]
+    pub body_max_size: usize,
+}
 
 pub struct Configuration {
     pub connection_string: String,
@@ -15,14 +41,25 @@ pub struct Configuration {
 }
 
 pub fn get_configuration() -> Configuration {
+    let Ok(raw) = config::Config::builder()
+        .add_source(File::new(CONFIG_FILE_NAME, FileFormat::Json).required(false))
+        .add_source(Environment::with_prefix(CONFIG_ENV_PREFIX))
+        .build()
+        .expect("Configuration is not buildable")
+        .try_deserialize::<RawConfiguration>()
+    else {
+        error!("Could not build configuration. Bye.");
+        exit(1);
+    };
+
     Configuration {
-        connection_string: "mysql://root:example@localhost/trsure_chest".into(),
-        listening_address: "localhost:8081".into(),
-        file_path: PathBuf::from("../../files"),
-        file_lifetime: Days::new(7),
-        recent_uploads_timespan: Days::new(1),
-        recent_uploads_maximum: 5,
-        ip_header_name: "X-Forwarded-For".into(),
-        body_max_size: 10_000_000,
+        connection_string: raw.connection_string,
+        listening_address: raw.listening_address,
+        file_path: raw.file_path,
+        file_lifetime: Days::new(raw.file_lifetime),
+        recent_uploads_timespan: Days::new(raw.recent_uploads_timespan),
+        recent_uploads_maximum: raw.recent_uploads_maximum,
+        ip_header_name: raw.ip_header_name,
+        body_max_size: raw.body_max_size,
     }
 }

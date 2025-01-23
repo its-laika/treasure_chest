@@ -18,9 +18,12 @@ mod util;
 async fn main() -> Result<(), DbErr> {
     env_logger::init();
 
+    /* Init configuration */
+    let connection_string = &CONFIGURATION.connection_string;
+
     info!("Connecting to database...");
 
-    let mut connect_options = ConnectOptions::new(&CONFIGURATION.connection_string);
+    let mut connect_options = ConnectOptions::new(connection_string);
 
     connect_options
         .max_connections(5)
