@@ -1,6 +1,7 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
 use chrono::Utc;
+use entity::file;
 use sea_orm::{
     ActiveValue::NotSet, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set,
 };
@@ -10,6 +11,35 @@ use uuid::Uuid;
 #[derive(FromQueryResult)]
 struct CountResult {
     count: i64,
+}
+
+pub async fn get_downloadable_file(
+    database_connection: &DatabaseConnection,
+    id: &Uuid,
+) -> Result<Option<entity::file::Model>, Error> {
+    entity::prelude::File::find()
+        .filter(entity::file::Column::Id.eq(*id))
+        .filter(entity::file::Column::DownloadUntil.gte(Utc::now()))
+        .filter(entity::file::Column::DownloadedAt.is_null())
+        .one(database_connection)
+        .await
+        .map_err(Error::DatabaseOperationFailed)
+}
+
+pub async fn mark_downloaded(
+    database_connection: &DatabaseConnection,
+    mut file: file::ActiveModel,
+    ip: &str,
+) -> Result<(), Error> {
+    file.downloaded_at = Set(Some(Utc::now().naive_utc()));
+    file.downloader_ip = Set(Some(ip.into()));
+
+    entity::prelude::File::update(file)
+        .exec(database_connection)
+        .await
+        .map_err(Error::DatabaseOperationFailed)?;
+
+    Ok(())
 }
 
 pub async fn is_recent_uploads_limit_reached(

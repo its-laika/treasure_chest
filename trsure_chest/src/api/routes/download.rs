@@ -1,112 +1,68 @@
+use crate::db::{get_downloadable_file, mark_downloaded};
+use crate::file::{delete_file, load_encrypted_data};
+use crate::request::get_request_ip;
+use crate::return_logged;
+use crate::util::get_validated_key;
 use axum::debug_handler;
-use axum::http::StatusCode;
+use axum::extract::{Path, State};
+use axum::http::HeaderMap;
 use axum::response::IntoResponse;
+use axum::{http::StatusCode, Json};
+use log::error;
+use sea_orm::{DatabaseConnection, IntoActiveModel};
+use serde::Deserialize;
+use uuid::Uuid;
 
-#[debug_handler] // TODO: Remove and "macro" feat of axum
-pub async fn handler(//   headers: HeaderMap,
-    //   State(pool): State<DatabaseConnection>,
- //   Path(name): Path<String>,
- //   body: String,
+#[derive(Deserialize)]
+pub struct RequestBody {
+    pub key: String,
+}
+
+#[debug_handler]
+pub async fn handler(
+    State(database_connection): State<DatabaseConnection>,
+    id: Path<Uuid>,
+    header_map: HeaderMap,
+    body: Json<RequestBody>,
 ) -> impl IntoResponse {
-    /*   let client_ip = match get_client_ip(&headers) {
-            Some(ip) => ip,
-            None => {
-                warn!("Request has no client ip. Sending: NOT_ACCEPTABLE");
-                return Err(StatusCode::NOT_ACCEPTABLE);
-            }
-        };
+    let Ok(request_ip) = get_request_ip(&header_map) else {
+        return Err(StatusCode::BAD_GATEWAY);
+    };
 
-        let mut file_info = match pool.load_file_info(&name).await {
-            Ok(None) => {
-                warn!("Could not find file info for name: {name}. Sending: NOT_FOUND");
-                return Err(StatusCode::NOT_FOUND);
-            }
-            Ok(Some(f)) => f,
-            Err(error) => {
-                error!(
-                    "Could load file info for name: {name}: {error}. Sending: INTERNAL_SERVER_ERROR"
-                );
-                return Err(StatusCode::INTERNAL_SERVER_ERROR);
-            }
-        };
+    // TODO: Rate limit
 
-        if !file_info.is_downloadable() {
-            info!("Tried downloading file {name} but not downloadable anymore.");
-            return Err(StatusCode::GONE);
-        }
+    let file = match get_downloadable_file(&database_connection, &id).await {
+        Ok(None) => return Err(StatusCode::NOT_FOUND),
+        Ok(Some(file)) => file,
+        Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
+    };
 
-        let key = match base64::decode(&body) {
-            Ok(k) => k,
-            Err(_) => {
-                info!("Invalid base64 encoded key given. Sending: BAD_REQUEST");
-                return Err(StatusCode::BAD_REQUEST);
-            }
-        };
-
-        match file_info.matches_key(&key) {
-            Ok(true) => (),
-            Ok(false) => {
-                info!("Tried downloading file {name} but not key doesn't match.");
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-            Err(error) => {
-                error!("Could verify hash: {error}. Sending: INTERNAL_SERVER_ERROR");
-                return Err(StatusCode::INTERNAL_SERVER_ERROR);
-            }
-        };
-
-        file_info.mark_download(client_ip.clone());
-        if let Err(error) = pool.store_file_info(&file_info).await {
-            error!("Could store file info: {error}. Sending: INTERNAL_SERVER_ERROR");
+    let file_id = match file.id.clone().try_into() {
+        Ok(bytes) => Uuid::from_bytes(bytes),
+        Err(_) => {
+            error!("Could not parse stored Id into Uuid");
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
+    };
 
-        let file_path = match file::find(&name) {
-            Ok(f) => f,
-            Err(error) => {
-                warn!("Could not find file: {error}. Sending: NOT_FOUND");
-                return Err(StatusCode::NOT_FOUND);
-            }
-        };
+    let Ok(key) = get_validated_key(&body.key, &file.hash) else {
+        return Err(StatusCode::UNAUTHORIZED);
+    };
 
-        let file = match file::load(&file_path) {
-            Ok(f) => f,
-            Err(error) => {
-                warn!("Could not find file: {error}. Sending: NOT_FOUND");
-                return Err(StatusCode::NOT_FOUND);
-            }
-        };
+    if let Err(error) =
+        mark_downloaded(&database_connection, file.into_active_model(), &request_ip).await
+    {
+        return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
+    }
 
-        let encryption_data = match XChaCha20Poly1305::decode(&file) {
-            Ok(d) => d,
-            Err(error) => {
-                error!("Could not decode file: {error}. Sending: INTERNAL_SERVER_ERROR");
-                return Err(StatusCode::INTERNAL_SERVER_ERROR);
-            }
-        };
+    let content = match load_encrypted_data(&file_id.to_string(), &key) {
+        Ok(content) => content,
+        Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
+    };
 
-        let decrypted_file = match encryption_data.decrypt(&key) {
-            Ok(d) => d,
-            Err(error) => {
-                warn!("Could not decode file: {error}. Sending: UNAUTHORIZED");
-                return Err(StatusCode::UNAUTHORIZED);
-            }
-        };
+    if let Err(error) = delete_file(&file_id.to_string()) {
+        error!("Could not delete used file {file_id}: {:?}", error);
+    }
 
-        if let Err(error) = file::ensure_deleted(&file_path) {
-            error!(
-                "Could not delete file '{}': {}. Sending: INTERNAL_SERVER_ERROR",
-                file_path.display(),
-                error
-            );
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-
-        info!(
-            "File '{}' has been accessed by IP {} and deleted",
-            client_ip,
-            &file_path.display()
-        );
-    */
-    StatusCode::OK
+    Ok(content)
 }

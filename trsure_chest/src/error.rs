@@ -8,8 +8,12 @@ pub enum Error {
     IpHeaderMissing(String),
     IpHeaderInvalid,
     SavingFileFailed(std::io::Error),
+    LoadingFileFailed(std::io::Error),
+    DeletingFileFailed(std::io::Error),
     ReadingBodyFailed(axum::Error),
     EncrytpionFailed(encryption::Error),
+    DecrytpionFailed(encryption::Error),
+    KeyInvalid,
 }
 
 impl fmt::Debug for Error {
@@ -21,9 +25,13 @@ impl fmt::Debug for Error {
             }
             Self::IpHeaderMissing(header_name) => write!(f, "IP header {header_name} missing"),
             Self::IpHeaderInvalid => write!(f, "IP header invalid"),
-            Self::SavingFileFailed(io_error) => write!(f, "Saving file failed: {io_error}"),
-            Self::ReadingBodyFailed(axum_error) => write!(f, "Reading body failed: {axum_error}"),
+            Self::SavingFileFailed(inner) => write!(f, "Saving file failed: {inner}"),
+            Self::LoadingFileFailed(inner) => write!(f, "Loading file failed: {inner}"),
+            Self::DeletingFileFailed(inner) => write!(f, "Removing file failed: {inner}"),
+            Self::ReadingBodyFailed(inner) => write!(f, "Reading body failed: {inner}"),
             Self::EncrytpionFailed(inner) => write!(f, "Encryption failed: {:?}", inner),
+            Self::DecrytpionFailed(inner) => write!(f, "Decryption failed: {:?}", inner),
+            Self::KeyInvalid => write!(f, "Key invalid"),
         }
     }
 }

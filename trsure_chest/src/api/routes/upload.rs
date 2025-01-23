@@ -20,8 +20,8 @@ pub struct Response {
 }
 
 pub async fn handler(
-    header_map: HeaderMap,
     State(database_connection): State<DatabaseConnection>,
+    header_map: HeaderMap,
     request: Request,
 ) -> impl IntoResponse {
     let Ok(request_ip) = get_request_ip(&header_map) else {

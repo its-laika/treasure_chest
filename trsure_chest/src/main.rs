@@ -8,6 +8,7 @@ mod db;
 mod error;
 mod file;
 mod request;
+mod util;
 
 const ADDRESS: &str = "127.0.0.1:8080";
 
