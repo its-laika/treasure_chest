@@ -1,11 +1,11 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
+use crate::encryption::{Encryption, EncryptionData};
 use axum::body::Body;
 use axum::http::HeaderMap;
-use base::encryption::{Encryption, XChaCha20Poly1305};
 
 pub type DecryptionKey = Vec<u8>;
-pub type EncryptionResult = Result<(XChaCha20Poly1305, DecryptionKey), Error>;
+pub type EncryptionResult = Result<(EncryptionData, DecryptionKey), Error>;
 
 pub fn get_request_ip(header_map: &HeaderMap) -> Result<String, Error> {
     return Ok(header_map
@@ -22,7 +22,7 @@ pub async fn encrypt_body(request_body: Body) -> EncryptionResult {
         .map_err(Error::ReadingBodyFailed)?;
 
     let (encryption_data, key) =
-        XChaCha20Poly1305::encrypt(&content).map_err(Error::EncrytpionFailed)?;
+        EncryptionData::encrypt(&content).map_err(Error::EncrytpionFailed)?;
 
     Ok((encryption_data, key))
 }

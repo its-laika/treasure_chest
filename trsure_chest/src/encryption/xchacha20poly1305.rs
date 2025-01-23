@@ -5,14 +5,14 @@ use chacha20poly1305::{
 };
 
 /// Container for encrypted data and the necessary information to decrypt it.
-pub struct EncryptionData {
+pub struct XChaCha20Poly1305Data {
     // Nonce for decrypting `content`
     nonce: Vec<u8>,
     // Encrypted data
     content: Vec<u8>,
 }
 
-impl Encoding<EncryptionData> for EncryptionData {
+impl Encoding<XChaCha20Poly1305Data> for XChaCha20Poly1305Data {
     fn encode(&self) -> Vec<u8> {
         let mut data = vec![];
         data.append(&mut self.nonce.clone());
@@ -20,7 +20,7 @@ impl Encoding<EncryptionData> for EncryptionData {
         data
     }
 
-    fn decode(data: &[u8]) -> Result<EncryptionData, Error> {
+    fn decode(data: &[u8]) -> Result<XChaCha20Poly1305Data, Error> {
         if data.len() < 24 {
             return Err(Error::InvalidData("Given data too short to decode".into()));
         }
@@ -32,8 +32,8 @@ impl Encoding<EncryptionData> for EncryptionData {
     }
 }
 
-impl Encryption<EncryptionData> for EncryptionData {
-    fn encrypt(plain: &[u8]) -> Result<(EncryptionData, Vec<u8>), Error> {
+impl Encryption<XChaCha20Poly1305Data> for XChaCha20Poly1305Data {
+    fn encrypt(plain: &[u8]) -> Result<(XChaCha20Poly1305Data, Vec<u8>), Error> {
         let key = XChaCha20Poly1305::generate_key(&mut OsRng);
         let cipher = XChaCha20Poly1305::new(&key);
         let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
@@ -42,7 +42,7 @@ impl Encryption<EncryptionData> for EncryptionData {
             .encrypt(&nonce, plain)
             .map_err(Error::EncryptionFailure)?;
 
-        let encryption_data = EncryptionData {
+        let encryption_data = XChaCha20Poly1305Data {
             nonce: nonce.to_vec(),
             content,
         };

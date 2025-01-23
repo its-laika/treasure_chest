@@ -1,14 +1,15 @@
-use crate::db::{is_recent_uploads_limit_reached, store};
+use crate::database::{is_recent_uploads_limit_reached, store};
 use crate::error::Error;
 use crate::file::store_data;
+use crate::hash::{Hash, Hashing};
 use crate::request::{encrypt_body, get_request_ip};
 use crate::return_logged;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::{extract::Request, http::StatusCode, Json};
-use base::base64;
-use base::hash::{Argon2, Hashing};
+use base64::prelude::BASE64_URL_SAFE;
+use base64::Engine;
 use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
@@ -40,7 +41,7 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    let hash = match Argon2::hash(&key) {
+    let hash = match Hash::hash(&key) {
         Ok(hash) => hash,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
@@ -57,7 +58,7 @@ pub async fn handler(
 
     let response = Response {
         id: id.into(),
-        key: base64::encode(&key),
+        key: BASE64_URL_SAFE.encode(&key),
     };
 
     Ok(Json(response))

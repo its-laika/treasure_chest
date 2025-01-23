@@ -1,4 +1,5 @@
 use chacha20poly1305::aead;
+use std::fmt::{self, Debug, Formatter};
 
 /// Possible errors during encryption / encoding
 pub enum Error {
@@ -7,8 +8,8 @@ pub enum Error {
     InvalidData(String),
 }
 
-impl std::fmt::Debug for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::EncryptionFailure(inner) => write!(f, "Encryption failure: {inner}"),
             Self::DecryptionFailure(inner) => write!(f, "Decryption failure: {inner}"),

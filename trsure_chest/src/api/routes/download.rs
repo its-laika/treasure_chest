@@ -1,9 +1,8 @@
-use crate::db::{get_downloadable_file, mark_downloaded};
+use crate::database::{get_downloadable_file, mark_downloaded};
 use crate::file::{delete_file, load_encrypted_data};
 use crate::request::get_request_ip;
 use crate::return_logged;
 use crate::util::get_validated_key;
-use axum::debug_handler;
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
@@ -18,7 +17,6 @@ pub struct RequestBody {
     pub key: String,
 }
 
-#[debug_handler]
 pub async fn handler(
     State(database_connection): State<DatabaseConnection>,
     id: Path<Uuid>,

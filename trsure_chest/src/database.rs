@@ -1,7 +1,7 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
 use chrono::Utc;
-use entity::file;
+use entity::{ActiveModel, Column, File, Model};
 use sea_orm::{
     ActiveValue::NotSet, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set,
 };
@@ -16,11 +16,11 @@ struct CountResult {
 pub async fn get_downloadable_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
-) -> Result<Option<entity::file::Model>, Error> {
-    entity::prelude::File::find()
-        .filter(entity::file::Column::Id.eq(*id))
-        .filter(entity::file::Column::DownloadUntil.gte(Utc::now()))
-        .filter(entity::file::Column::DownloadedAt.is_null())
+) -> Result<Option<Model>, Error> {
+    File::find()
+        .filter(Column::Id.eq(*id))
+        .filter(Column::DownloadUntil.gte(Utc::now()))
+        .filter(Column::DownloadedAt.is_null())
         .one(database_connection)
         .await
         .map_err(Error::DatabaseOperationFailed)
@@ -28,13 +28,13 @@ pub async fn get_downloadable_file(
 
 pub async fn mark_downloaded(
     database_connection: &DatabaseConnection,
-    mut file: file::ActiveModel,
+    mut file: ActiveModel,
     ip: &str,
 ) -> Result<(), Error> {
     file.downloaded_at = Set(Some(Utc::now().naive_utc()));
     file.downloader_ip = Set(Some(ip.into()));
 
-    entity::prelude::File::update(file)
+    File::update(file)
         .exec(database_connection)
         .await
         .map_err(Error::DatabaseOperationFailed)?;
@@ -50,11 +50,11 @@ pub async fn is_recent_uploads_limit_reached(
         .checked_sub_days(CONFIGURATION.recent_uploads_timespan)
         .ok_or(Error::DateCalculationFailed)?;
 
-    let count = entity::prelude::File::find()
+    let count = File::find()
         .select_only()
-        .column_as(entity::file::Column::Id.count(), "count")
-        .filter(entity::file::Column::UploaderIp.eq(ip))
-        .filter(entity::file::Column::UploadedAt.gte(min_uploaded_at.naive_utc()))
+        .column_as(Column::Id.count(), "count")
+        .filter(Column::UploaderIp.eq(ip))
+        .filter(Column::UploadedAt.gte(min_uploaded_at.naive_utc()))
         .into_model::<CountResult>()
         .one(database_connection)
         .await
@@ -77,7 +77,7 @@ pub async fn store(
         .checked_add_days(CONFIGURATION.file_lifetime)
         .ok_or(Error::DateCalculationFailed)?;
 
-    let file = entity::file::ActiveModel {
+    let file = ActiveModel {
         id: Set((*id).into()),
         hash: Set(hash.into()),
         downloader_ip: NotSet,
@@ -87,7 +87,7 @@ pub async fn store(
         downloaded_at: NotSet,
     };
 
-    entity::prelude::File::insert(file)
+    File::insert(file)
         .exec(database_connection)
         .await
         .map_err(Error::DatabaseOperationFailed)?;

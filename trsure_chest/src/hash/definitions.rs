@@ -1,5 +1,5 @@
 use argon2::password_hash::Error as ArgonError;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Formatter};
 
 /// Possible errors while hashing / verifying
 pub enum Error {
@@ -8,7 +8,7 @@ pub enum Error {
 }
 
 impl Debug for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::HashingFailure(inner) => write!(f, "Hashing failed: {:?}", inner),
             Self::VerifyingFailure(inner) => write!(f, "Verifiying failed: {:?}", inner),

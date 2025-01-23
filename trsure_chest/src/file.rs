@@ -1,16 +1,29 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
-use base::{
-    encryption::{Encoding, Encryption, XChaCha20Poly1305},
-    file::{ensure_deleted, load, store},
-};
+use crate::encryption::{Encoding, Encryption, EncryptionData};
 use std::path::PathBuf;
+use std::{
+    fs::{self, OpenOptions},
+    io::{Read, Write},
+};
 
 pub fn store_data<U, T: Encoding<U>>(content: T, base_name: &str) -> Result<PathBuf, Error> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(base_name);
 
-    store(&file_path, &content.encode()).map_err(Error::SavingFileFailed)?;
+    let mut file = match OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&file_path)
+    {
+        Ok(file) => file,
+        Err(error) => return Err(Error::SavingFileFailed(error)),
+    };
+
+    if let Err(error) = file.write_all(&content.encode()) {
+        delete_file(base_name)?;
+        return Err(Error::SavingFileFailed(error));
+    }
 
     Ok(file_path)
 }
@@ -19,9 +32,18 @@ pub fn load_encrypted_data(base_name: &str, key: &[u8]) -> Result<Vec<u8>, Error
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(base_name);
 
-    let content = load(&file_path).map_err(Error::LoadingFileFailed)?;
+    let mut content = vec![];
 
-    XChaCha20Poly1305::decode(&content)
+    let mut file = match OpenOptions::new().read(true).open(&file_path) {
+        Ok(file) => file,
+        Err(error) => return Err(Error::LoadingFileFailed(error)),
+    };
+
+    if let Err(error) = file.read_to_end(&mut content) {
+        return Err(Error::LoadingFileFailed(error));
+    };
+
+    EncryptionData::decode(&content)
         .map_err(Error::DecrytpionFailed)?
         .decrypt(key)
         .map_err(Error::DecrytpionFailed)
@@ -31,5 +53,24 @@ pub fn delete_file(base_name: &str) -> Result<(), Error> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(base_name);
 
-    ensure_deleted(&file_path).map_err(Error::DeletingFileFailed)
+    match fs::exists(&file_path) {
+        Ok(true) => (),
+        Ok(false) => return Ok(()),
+        Err(error) => return Err(Error::DeletingFileFailed(error)),
+    }
+
+    let metadata = match fs::metadata(&file_path) {
+        Ok(metadata) => metadata,
+        Err(error) => return Err(Error::DeletingFileFailed(error)),
+    };
+
+    if metadata.is_file() {
+        if let Err(error) = fs::remove_file(&file_path) {
+            return Err(Error::DeletingFileFailed(error));
+        }
+    } else if let Err(error) = fs::remove_dir_all(&file_path) {
+        return Err(Error::DeletingFileFailed(error));
+    }
+
+    Ok(())
 }

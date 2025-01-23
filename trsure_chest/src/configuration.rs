@@ -1,10 +1,11 @@
-use std::{path::PathBuf, sync::LazyLock};
-
 use chrono::Days;
+use std::{path::PathBuf, sync::LazyLock};
 
 pub static CONFIGURATION: LazyLock<Configuration> = LazyLock::new(get_configuration);
 
 pub struct Configuration {
+    pub connection_string: String,
+    pub listening_address: String,
     pub file_path: PathBuf,
     pub file_lifetime: Days,
     pub recent_uploads_timespan: Days,
@@ -15,7 +16,9 @@ pub struct Configuration {
 
 pub fn get_configuration() -> Configuration {
     Configuration {
-        file_path: PathBuf::from("../.."),
+        connection_string: "mysql://root:example@localhost/trsure_chest".into(),
+        listening_address: "localhost:8081".into(),
+        file_path: PathBuf::from("../../files"),
         file_lifetime: Days::new(7),
         recent_uploads_timespan: Days::new(1),
         recent_uploads_maximum: 5,

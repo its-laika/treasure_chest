@@ -1,4 +1,4 @@
-use base::encryption;
+use crate::encryption;
 use sea_orm::DbErr;
 use std::fmt;
 
@@ -20,8 +20,8 @@ impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DateCalculationFailed => write!(f, "Date calculation failed"),
-            Self::DatabaseOperationFailed(db_error) => {
-                write!(f, "Database operation failed: {db_error}")
+            Self::DatabaseOperationFailed(inner) => {
+                write!(f, "Database operation failed: {inner}")
             }
             Self::IpHeaderMissing(header_name) => write!(f, "IP header {header_name} missing"),
             Self::IpHeaderInvalid => write!(f, "IP header invalid"),
