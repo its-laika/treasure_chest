@@ -1,4 +1,4 @@
-# t<b><i>r</i></b>ea<b><i>s</i></b>ure chest
+# t<i>r</i>eas<i>u</i>re che<i>st</i>
 
 ## About
 
