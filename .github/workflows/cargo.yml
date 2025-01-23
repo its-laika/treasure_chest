@@ -14,7 +14,7 @@ jobs:
   task:
     defaults:
       run:
-        working-directory: ./trsure_chest
+        working-directory: ./treasure_chest
 
     runs-on: ubuntu-latest
 
