@@ -33,6 +33,7 @@ pub async fn mark_downloaded(
 ) -> Result<(), Error> {
     file.downloaded_at = Set(Some(Utc::now().naive_utc()));
     file.downloader_ip = Set(Some(ip.into()));
+    file.hash = Set("".into());
 
     File::update(file)
         .exec(database_connection)
