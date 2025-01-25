@@ -5,12 +5,12 @@
     "BindTo": "localhost:8000",
     // Path of uploaded, encrypted files
     "FilePath": "./files",
-    // Lifefime of uploaded, not downloaded, encrypted files
-    "FileLifetime": 7,
-    // Timespan (as days) where max {RecentUploadsMaximum} files can be uploaded by a single IP 
-    "RecentUploadsTimespan": 1,
-    // Max number of files that can be uploaded in {RecentUploadsTimespan} by a single IP
-    "RecentUploadsMaximum": 5,
+    // Max download tries for a file (by all IPs) 
+    "MaxDownloadTries": 3,
+    // Default lifefime (in days) of not downloaded, encrypted files
+    "DaysFileAvailable": 7,
+    // Max number of files that can be uploaded by a single IP in a day
+    "UserUploadsPerDay": 5,
     // Name of header that will be used to indicate a requests IP. Ensure to configure your proxying server!
     "IPHeaderName": "X-Forwarded-For",
     // Max (unencrypted) file size in bytes. Mind that - during an upload request - both unencrypted and encrypted file are held in memory! So memory of request roughly equals {BodyMaxSize} * 2.

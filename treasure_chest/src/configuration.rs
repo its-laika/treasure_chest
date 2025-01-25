@@ -17,12 +17,12 @@ struct RawConfiguration {
     pub listening_address: String,
     #[serde(rename = "FilePath")]
     pub file_path: PathBuf,
-    #[serde(rename = "FileLifetime")]
-    pub file_lifetime: u64,
-    #[serde(rename = "RecentUploadsTimespan")]
-    pub recent_uploads_timespan: u64,
-    #[serde(rename = "RecentUploadsMaximum")]
-    pub recent_uploads_maximum: u32,
+    #[serde(rename = "DaysFileAvailable")]
+    pub default_days_lifetime: u64,
+    #[serde(rename = "UserUploadsPerDay")]
+    pub user_uploads_per_day: u32,
+    #[serde(rename = "MaxDownloadTries")]
+    pub max_download_tries: u32,
     #[serde(rename = "IPHeaderName")]
     pub ip_header_name: String,
     #[serde(rename = "BodyMaxSize")]
@@ -33,9 +33,9 @@ pub struct Configuration {
     pub connection_string: String,
     pub listening_address: String,
     pub file_path: PathBuf,
-    pub file_lifetime: Days,
-    pub recent_uploads_timespan: Days,
-    pub recent_uploads_maximum: u32,
+    pub default_lifetime: Days,
+    pub ip_uploads_per_day: u32,
+    pub max_download_tries: u32,
     pub ip_header_name: String,
     pub body_max_size: usize,
 }
@@ -56,9 +56,9 @@ pub fn get_configuration() -> Configuration {
         connection_string: raw.connection_string,
         listening_address: raw.listening_address,
         file_path: raw.file_path,
-        file_lifetime: Days::new(raw.file_lifetime),
-        recent_uploads_timespan: Days::new(raw.recent_uploads_timespan),
-        recent_uploads_maximum: raw.recent_uploads_maximum,
+        default_lifetime: Days::new(raw.default_days_lifetime),
+        max_download_tries: raw.max_download_tries,
+        ip_uploads_per_day: raw.user_uploads_per_day,
         ip_header_name: raw.ip_header_name,
         body_max_size: raw.body_max_size,
     }

@@ -1,6 +1,6 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
-use chrono::Utc;
+use chrono::{Days, Utc};
 use entity::{self, access_log, file};
 use sea_orm::sea_query::Query;
 use sea_orm::{ColumnTrait, Condition, FromQueryResult};
@@ -38,7 +38,7 @@ pub async fn is_recent_uploads_limit_reached(
     ip: &str,
 ) -> Result<bool, Error> {
     let min_uploaded_at = Utc::now()
-        .checked_sub_days(CONFIGURATION.recent_uploads_timespan)
+        .checked_sub_days(Days::new(1))
         .ok_or(Error::DateCalculationFailed)?;
 
     let count = entity::File::find()
@@ -53,7 +53,7 @@ pub async fn is_recent_uploads_limit_reached(
         .unwrap_or(CountResult { count: 0 })
         .count;
 
-    Ok(count >= CONFIGURATION.recent_uploads_maximum.into())
+    Ok(count >= CONFIGURATION.ip_uploads_per_day.into())
 }
 
 pub async fn store_file(
@@ -65,7 +65,7 @@ pub async fn store_file(
     let now = Utc::now();
 
     let download_until = now
-        .checked_add_days(CONFIGURATION.file_lifetime)
+        .checked_add_days(CONFIGURATION.default_lifetime)
         .ok_or(Error::DateCalculationFailed)?;
 
     let file = file::ActiveModel {
