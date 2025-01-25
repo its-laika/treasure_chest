@@ -1,6 +1,6 @@
-use crate::database::{get_downloadable_file, is_download_limit_reached, store_access_log};
-use crate::file::{delete_file, load_encrypted_data};
-use crate::request::get_request_ip;
+use crate::database::{get_downloadable_file, store_access_log};
+use crate::file::{delete_file, load_encrypted_data, load_encrypted_metadata};
+use crate::request::{build_header_map, get_request_ip};
 use crate::return_logged;
 use crate::util::get_validated_key;
 use axum::extract::{Path, State};
@@ -34,12 +34,6 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    match is_download_limit_reached(&database_connection, &id).await {
-        Ok(false) => (),
-        Ok(true) => return Err(StatusCode::TOO_MANY_REQUESTS),
-        Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
-    };
-
     let Ok(key) = get_validated_key(&body.key, &file.hash) else {
         if let Err(error) = store_access_log(&database_connection, &request_ip, &id, false).await {
             return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
@@ -57,9 +51,14 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
+    let header_hap = match load_encrypted_metadata(&file, &key) {
+        Ok(Some(metadata)) => build_header_map(&metadata),
+        _ => HeaderMap::new(),
+    };
+
     if let Err(error) = delete_file(&id.to_string()) {
         error!("Could not delete used file {}: {:?}", id.to_string(), error);
     }
 
-    Ok(content)
+    Ok((header_hap, content))
 }

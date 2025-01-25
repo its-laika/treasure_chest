@@ -10,7 +10,7 @@ Heavily wip and not feature complete
 
 ## TODOs
 - [x] Rate limit for unsuccessfully trying to download files
-- [ ] Store MIME type & file name
+- [x] Store MIME type & file name
 - [ ] Frontend
 - [ ] Clean up code
 - [ ] Tests

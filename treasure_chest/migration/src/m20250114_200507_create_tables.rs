@@ -16,6 +16,7 @@ impl MigrationTrait for Migration {
                     .col(string(File::UploaderIp).not_null())
                     .col(date_time(File::UploadedAt).not_null())
                     .col(date_time(File::DownloadUntil).not_null())
+                    .col(blob(File::EncryptedMetadata).not_null())
                     .to_owned(),
             )
             .await?;
@@ -77,6 +78,8 @@ pub enum File {
     UploaderIp,
     #[sea_orm(iden = "download_until")]
     DownloadUntil,
+    #[sea_orm(iden = "encrypted_metadata")]
+    EncryptedMetadata,
 }
 
 #[derive(DeriveIden)]

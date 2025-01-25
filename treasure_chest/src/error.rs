@@ -11,9 +11,10 @@ pub enum Error {
     LoadingFileFailed(std::io::Error),
     DeletingFileFailed(std::io::Error),
     ReadingBodyFailed(axum::Error),
-    EncrytpionFailed(encryption::Error),
+    EncryptionFailed(encryption::Error),
     DecrytpionFailed(encryption::Error),
     KeyInvalid,
+    JsonSerializationFailed(serde_json::Error),
 }
 
 impl fmt::Debug for Error {
@@ -29,9 +30,10 @@ impl fmt::Debug for Error {
             Self::LoadingFileFailed(inner) => write!(f, "Loading file failed: {inner}"),
             Self::DeletingFileFailed(inner) => write!(f, "Removing file failed: {inner}"),
             Self::ReadingBodyFailed(inner) => write!(f, "Reading body failed: {inner}"),
-            Self::EncrytpionFailed(inner) => write!(f, "Encryption failed: {:?}", inner),
+            Self::EncryptionFailed(inner) => write!(f, "Encryption failed: {:?}", inner),
             Self::DecrytpionFailed(inner) => write!(f, "Decryption failed: {:?}", inner),
             Self::KeyInvalid => write!(f, "Key invalid"),
+            Self::JsonSerializationFailed(inner) => write!(f, "JSON Serialization failed: {inner}"),
         }
     }
 }

@@ -10,7 +10,6 @@ pub fn get_validated_key(encoded_key: &str, hash: &str) -> Result<Vec<u8>, Error
 
     match Hash::verify(&key, hash) {
         Ok(true) => Ok(key),
-        Ok(false) => Err(Error::KeyInvalid),
-        Err(_) => Err(Error::KeyInvalid),
+        _ => Err(Error::KeyInvalid),
     }
 }

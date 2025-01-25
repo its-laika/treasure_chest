@@ -3387,6 +3387,7 @@ dependencies = [
  "futures",
  "log",
  "migration",
+ "regex",
  "sea-orm",
  "serde",
  "serde_json",

@@ -12,6 +12,8 @@ pub struct Model {
     pub uploader_ip: String,
     pub uploaded_at: DateTime,
     pub download_until: DateTime,
+    #[sea_orm(column_type = "Binary(255)")]
+    pub encrypted_metadata: Vec<u8>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

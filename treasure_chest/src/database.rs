@@ -2,6 +2,7 @@ use super::error::Error;
 use crate::configuration::CONFIGURATION;
 use chrono::{Days, Utc};
 use entity::{self, access_log, file};
+use migration::ExprTrait;
 use sea_orm::sea_query::Query;
 use sea_orm::{ColumnTrait, Condition, FromQueryResult};
 use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set};
@@ -25,6 +26,22 @@ pub async fn get_downloadable_file(
                     .column(access_log::Column::FileId)
                     .from(access_log::Entity)
                     .cond_where(Condition::all().add(access_log::Column::Successful.eq(1)))
+                    .to_owned(),
+            ),
+        )
+        .filter(
+            file::Column::Id.not_in_subquery(
+                Query::select()
+                    .column(access_log::Column::FileId)
+                    .from(access_log::Entity)
+                    .group_by_col(access_log::Column::FileId)
+                    .cond_having(
+                        Condition::all().add(
+                            access_log::Column::FileId
+                                .count()
+                                .gte(CONFIGURATION.max_download_tries),
+                        ),
+                    )
                     .to_owned(),
             ),
         )
@@ -56,29 +73,12 @@ pub async fn is_upload_limit_reached(
     Ok(count >= CONFIGURATION.ip_uploads_per_day.into())
 }
 
-pub async fn is_download_limit_reached(
-    database_connection: &DatabaseConnection,
-    id: &Uuid,
-) -> Result<bool, Error> {
-    let count = entity::AccessLog::find()
-        .select_only()
-        .column_as(access_log::Column::Id.count(), "count")
-        .filter(access_log::Column::FileId.eq(*id))
-        .into_model::<CountResult>()
-        .one(database_connection)
-        .await
-        .map_err(Error::DatabaseOperationFailed)?
-        .unwrap_or(CountResult { count: 0 })
-        .count;
-
-    Ok(count < CONFIGURATION.max_download_tries.into())
-}
-
 pub async fn store_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
-    hash: &str,
-    uploader_ip: &str,
+    hash: String,
+    uploader_ip: String,
+    encrypted_metadata: Vec<u8>,
 ) -> Result<(), Error> {
     let now = Utc::now();
 
@@ -88,10 +88,11 @@ pub async fn store_file(
 
     let file = file::ActiveModel {
         id: Set((*id).into()),
-        hash: Set(hash.into()),
-        uploader_ip: Set(uploader_ip.into()),
+        hash: Set(hash),
+        uploader_ip: Set(uploader_ip),
         uploaded_at: Set(now.naive_utc()),
         download_until: Set(download_until.naive_utc()),
+        encrypted_metadata: Set(encrypted_metadata),
     };
 
     entity::File::insert(file)

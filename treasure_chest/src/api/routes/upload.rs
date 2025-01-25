@@ -1,8 +1,8 @@
 use crate::database::{is_upload_limit_reached, store_file};
 use crate::error::Error;
-use crate::file::store_data;
+use crate::file::{generate_encrypted_metadata, store_data};
 use crate::hash::{Hash, Hashing};
-use crate::request::{encrypt_body, get_request_ip};
+use crate::request::{encrypt_body, get_metadata, get_request_ip};
 use crate::return_logged;
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -42,6 +42,15 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
+    let encrypted_metadata = match generate_encrypted_metadata(&get_metadata(&header_map), &key) {
+        Ok(encrypted_metadata) => encrypted_metadata,
+        Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    if encrypted_metadata.len() > 255 {
+        return Err(StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE);
+    }
+
     let hash = match Hash::hash(&key) {
         Ok(hash) => hash,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
@@ -53,14 +62,20 @@ pub async fn handler(
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    if let Err(error) = store_file(&database_connection, &id, &hash, &request_ip).await {
+    if let Err(error) = store_file(
+        &database_connection,
+        &id,
+        hash,
+        request_ip,
+        encrypted_metadata,
+    )
+    .await
+    {
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    let response = Response {
+    Ok(Json(Response {
         id: id.into(),
         key: BASE64_URL_SAFE.encode(&key),
-    };
-
-    Ok(Json(response))
+    }))
 }

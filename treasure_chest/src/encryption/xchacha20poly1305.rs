@@ -50,6 +50,23 @@ impl Encryption<XChaCha20Poly1305Data> for XChaCha20Poly1305Data {
         Ok((encryption_data, key.to_vec()))
     }
 
+    fn encrypt_with_key(plain: &[u8], key: &[u8]) -> Result<XChaCha20Poly1305Data, Error> {
+        let key = Key::from_slice(key);
+        let cipher = XChaCha20Poly1305::new(key);
+        let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+
+        let content = cipher
+            .encrypt(&nonce, plain)
+            .map_err(Error::EncryptionFailure)?;
+
+        let encryption_data = XChaCha20Poly1305Data {
+            nonce: nonce.to_vec(),
+            content,
+        };
+
+        Ok(encryption_data)
+    }
+
     fn decrypt(&self, key: &[u8]) -> Result<Vec<u8>, Error> {
         if key.len() != 32 {
             return Err(Error::InvalidData("Given key has invalid length".into()));

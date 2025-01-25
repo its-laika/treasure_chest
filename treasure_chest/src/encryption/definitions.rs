@@ -44,6 +44,19 @@ pub trait Encryption<T> {
     /// * Ok(`(encryption data, decryption key)`) on success
     fn encrypt(plain: &[u8]) -> Result<(T, Vec<u8>), Error>;
 
+    // Encrypts plain data with given key and returns encryption-data.
+    ///
+    /// # Arguments
+    ///
+    /// * `plain` - Plain data to encrypt
+    /// * `key` - Predefined key to use
+    ///
+    /// # Returns
+    ///
+    /// * Err([`Error`]) on encryption failure
+    /// * Ok(`encryption data`) on success
+    fn encrypt_with_key(plain: &[u8], key: &[u8]) -> Result<T, Error>;
+
     /// Decrypts data with given key.
     ///
     /// # Arguments
