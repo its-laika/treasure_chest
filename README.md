@@ -9,7 +9,7 @@ Uses XChaCha20-Poly1305 to encrypt files and Argon2id to verify decryption key.
 Heavily wip and not feature complete 
 
 ## TODOs
-- [ ] Rate limit for unsuccessfully trying to download files
+- [x] Rate limit for unsuccessfully trying to download files
 - [ ] Store MIME type & file name
 - [ ] Frontend
 - [ ] Clean up code

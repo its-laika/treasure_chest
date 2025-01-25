@@ -1,4 +1,4 @@
-use crate::database::{is_recent_uploads_limit_reached, store_file};
+use crate::database::{is_upload_limit_reached, store_file};
 use crate::error::Error;
 use crate::file::store_data;
 use crate::hash::{Hash, Hashing};
@@ -30,7 +30,7 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::BAD_GATEWAY),
     };
 
-    match is_recent_uploads_limit_reached(&database_connection, &request_ip).await {
+    match is_upload_limit_reached(&database_connection, &request_ip).await {
         Ok(false) => (),
         Ok(true) => return Err(StatusCode::TOO_MANY_REQUESTS),
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),

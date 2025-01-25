@@ -33,7 +33,7 @@ pub async fn get_downloadable_file(
         .map_err(Error::DatabaseOperationFailed)
 }
 
-pub async fn is_recent_uploads_limit_reached(
+pub async fn is_upload_limit_reached(
     database_connection: &DatabaseConnection,
     ip: &str,
 ) -> Result<bool, Error> {
@@ -54,6 +54,24 @@ pub async fn is_recent_uploads_limit_reached(
         .count;
 
     Ok(count >= CONFIGURATION.ip_uploads_per_day.into())
+}
+
+pub async fn is_download_limit_reached(
+    database_connection: &DatabaseConnection,
+    id: &Uuid,
+) -> Result<bool, Error> {
+    let count = entity::AccessLog::find()
+        .select_only()
+        .column_as(access_log::Column::Id.count(), "count")
+        .filter(access_log::Column::FileId.eq(*id))
+        .into_model::<CountResult>()
+        .one(database_connection)
+        .await
+        .map_err(Error::DatabaseOperationFailed)?
+        .unwrap_or(CountResult { count: 0 })
+        .count;
+
+    Ok(count < CONFIGURATION.max_download_tries.into())
 }
 
 pub async fn store_file(

@@ -1,4 +1,4 @@
-use crate::database::{get_downloadable_file, store_access_log};
+use crate::database::{get_downloadable_file, is_download_limit_reached, store_access_log};
 use crate::file::{delete_file, load_encrypted_data};
 use crate::request::get_request_ip;
 use crate::return_logged;
@@ -28,43 +28,37 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::BAD_GATEWAY),
     };
 
-    // TODO: Rate limit
-
     let file = match get_downloadable_file(&database_connection, &id).await {
         Ok(None) => return Err(StatusCode::NOT_FOUND),
         Ok(Some(file)) => file,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    let file_id = match file.id.clone().try_into() {
-        Ok(bytes) => Uuid::from_bytes(bytes),
-        Err(_) => {
-            error!("Could not parse stored Id into Uuid");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
+    match is_download_limit_reached(&database_connection, &id).await {
+        Ok(false) => (),
+        Ok(true) => return Err(StatusCode::TOO_MANY_REQUESTS),
+        Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
     let Ok(key) = get_validated_key(&body.key, &file.hash) else {
-        if let Err(error) =
-            store_access_log(&database_connection, &request_ip, &file_id, false).await
-        {
+        if let Err(error) = store_access_log(&database_connection, &request_ip, &id, false).await {
             return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
         }
 
         return Err(StatusCode::UNAUTHORIZED);
     };
 
-    if let Err(error) = store_access_log(&database_connection, &request_ip, &file_id, true).await {
+    if let Err(error) = store_access_log(&database_connection, &request_ip, &id, true).await {
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR)
     }
 
-    let content = match load_encrypted_data(&file_id.to_string(), &key) {
+    let content = match load_encrypted_data(&id.to_string(), &key) {
         Ok(content) => content,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    if let Err(error) = delete_file(&file_id.to_string()) {
-        error!("Could not delete used file {file_id}: {:?}", error);
+    if let Err(error) = delete_file(&id.to_string()) {
+        error!("Could not delete used file {}: {:?}", id.to_string(), error);
     }
 
     Ok(content)
