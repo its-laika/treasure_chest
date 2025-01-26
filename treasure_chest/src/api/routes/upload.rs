@@ -1,8 +1,8 @@
-use crate::database::{is_upload_limit_reached, store_file};
+use crate::database;
 use crate::error::Error;
-use crate::file::{generate_encrypted_metadata, store_data};
+use crate::file;
 use crate::hash::{Hash, Hashing};
-use crate::request::{encrypt_body, get_metadata, get_request_ip};
+use crate::request;
 use crate::return_logged;
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -22,30 +22,31 @@ pub struct Response {
 
 pub async fn handler(
     State(database_connection): State<DatabaseConnection>,
-    header_map: HeaderMap,
+    headers: HeaderMap,
     request: Request,
 ) -> impl IntoResponse {
-    let request_ip = match get_request_ip(&header_map) {
+    let request_ip = match request::get_request_ip(&headers) {
         Ok(ip) => ip,
         Err(error) => return_logged!(error, StatusCode::BAD_GATEWAY),
     };
 
-    match is_upload_limit_reached(&database_connection, &request_ip).await {
+    match database::is_upload_limit_reached(&database_connection, &request_ip).await {
         Ok(false) => (),
         Ok(true) => return Err(StatusCode::TOO_MANY_REQUESTS),
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     }
 
-    let (encryption_data, key) = match encrypt_body(request.into_body()).await {
+    let (encryption_data, key) = match request::encrypt_body(request.into_body()).await {
         Ok(encryption_data) => encryption_data,
         Err(Error::ReadingBodyFailed(_)) => return Err(StatusCode::BAD_REQUEST),
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    let encrypted_metadata = match generate_encrypted_metadata(&get_metadata(&header_map), &key) {
-        Ok(encrypted_metadata) => encrypted_metadata,
-        Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
-    };
+    let encrypted_metadata =
+        match file::generate_encrypted_metadata(&request::get_metadata(&headers), &key) {
+            Ok(encrypted_metadata) => encrypted_metadata,
+            Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
+        };
 
     if encrypted_metadata.len() > 255 {
         return Err(StatusCode::REQUEST_HEADER_FIELDS_TOO_LARGE);
@@ -58,11 +59,11 @@ pub async fn handler(
 
     let id = Uuid::new_v4();
 
-    if let Err(error) = store_data(encryption_data, &id.to_string()) {
+    if let Err(error) = file::store_data(&encryption_data, &id.to_string()) {
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    if let Err(error) = store_file(
+    if let Err(error) = database::store_file(
         &database_connection,
         &id,
         hash,

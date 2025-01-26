@@ -10,8 +10,8 @@ pub enum Error {
 impl Debug for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::HashingFailure(inner) => write!(f, "Hashing failed: {:?}", inner),
-            Self::VerifyingFailure(inner) => write!(f, "Verifiying failed: {:?}", inner),
+            Self::HashingFailure(inner) => write!(f, "Hashing failed: {inner:?}"),
+            Self::VerifyingFailure(inner) => write!(f, "Verifiying failed: {inner:?}"),
         }
     }
 }

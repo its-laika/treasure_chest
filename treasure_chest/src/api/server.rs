@@ -1,4 +1,4 @@
-use super::routes::{download, upload};
+use super::routes;
 use crate::configuration::CONFIGURATION;
 use axum::{routing::post, Router};
 use sea_orm::DatabaseConnection;
@@ -7,8 +7,8 @@ use tokio::net::TcpListener;
 
 pub async fn listen(connection: DatabaseConnection) -> Result<(), Error> {
     let app = Router::new()
-        .route("/files", post(upload::handler))
-        .route("/files/{id}/download", post(download::handler))
+        .route("/files", post(routes::upload::handler))
+        .route("/files/{id}/download", post(routes::download::handler))
         .with_state(connection);
 
     let listener = TcpListener::bind(&CONFIGURATION.listening_address).await?;

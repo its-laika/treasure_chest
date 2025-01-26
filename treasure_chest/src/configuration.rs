@@ -1,13 +1,12 @@
 use chrono::Days;
 use config::{Environment, File, FileFormat};
-use log::error;
 use serde::Deserialize;
 use std::{path::PathBuf, process::exit, sync::LazyLock};
 
 pub const CONFIG_FILE_NAME: &str = "config.json";
 pub const CONFIG_ENV_PREFIX: &str = "TREASURE_CHEST";
 
-pub static CONFIGURATION: LazyLock<Configuration> = LazyLock::new(get_configuration);
+pub static CONFIGURATION: LazyLock<Configuration> = LazyLock::new(build);
 
 #[derive(Deserialize)]
 struct RawConfiguration {
@@ -40,7 +39,7 @@ pub struct Configuration {
     pub body_max_size: usize,
 }
 
-pub fn get_configuration() -> Configuration {
+pub fn build() -> Configuration {
     let Ok(raw) = config::Config::builder()
         .add_source(File::new(CONFIG_FILE_NAME, FileFormat::Json).required(false))
         .add_source(Environment::with_prefix(CONFIG_ENV_PREFIX))
@@ -48,7 +47,7 @@ pub fn get_configuration() -> Configuration {
         .expect("Configuration is not buildable")
         .try_deserialize::<RawConfiguration>()
     else {
-        error!("Could not build configuration. Bye.");
+        log::error!("Could not build configuration. Bye.");
         exit(1);
     };
 

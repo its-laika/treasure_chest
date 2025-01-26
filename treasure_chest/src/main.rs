@@ -1,8 +1,7 @@
 use configuration::CONFIGURATION;
-use log::{error, info, LevelFilter};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DbErr};
-use std::{process::exit, time::Duration};
+use std::{process, time::Duration};
 
 mod api;
 mod configuration;
@@ -21,12 +20,12 @@ async fn main() -> Result<(), DbErr> {
     /* Init configuration */
     let connection_string = &CONFIGURATION.connection_string;
 
-    info!("Connecting to database (connection timeout is 8 secs)...");
+    log::info!("Connecting to database (connection timeout is 8 secs)...");
 
     let mut connect_options = ConnectOptions::new(connection_string);
 
     connect_options
-        .sqlx_logging_level(LevelFilter::Debug)
+        .sqlx_logging_level(log::LevelFilter::Debug)
         .max_connections(5)
         .min_connections(1)
         .connect_timeout(Duration::from_secs(8))
@@ -35,22 +34,22 @@ async fn main() -> Result<(), DbErr> {
         .max_lifetime(Duration::from_secs(8));
 
     let Ok(database_connection) = Database::connect(connect_options).await else {
-        error!("Could not connect to database. Bye.");
-        exit(1);
+        log::error!("Could not connect to database. Bye.");
+        process::exit(1);
     };
 
-    info!("Migrating database...");
+    log::info!("Migrating database...");
     Migrator::up(&database_connection, None).await?;
 
-    info!("Starting API on {}...", &CONFIGURATION.listening_address);
+    log::info!("Starting API on {}...", &CONFIGURATION.listening_address);
 
     if let Err(error) = api::listen(database_connection.clone()).await {
-        error!("API failed: {error}");
+        log::error!("API failed: {error}");
     }
 
-    info!("API shut down. Closing database connection...");
+    log::info!("API shut down. Closing database connection...");
     database_connection.close().await?;
 
-    info!("Bye.");
+    log::info!("Bye.");
     Ok(())
 }

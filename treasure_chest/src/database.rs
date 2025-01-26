@@ -1,7 +1,6 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
 use chrono::{Days, Utc};
-use entity::{self, access_log, file};
 use migration::ExprTrait;
 use sea_orm::sea_query::Query;
 use sea_orm::{ColumnTrait, Condition, FromQueryResult};
@@ -16,28 +15,28 @@ struct CountResult {
 pub async fn get_downloadable_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
-) -> Result<Option<file::Model>, Error> {
+) -> Result<Option<entity::file::Model>, Error> {
     entity::File::find()
-        .filter(file::Column::Id.eq(*id))
-        .filter(file::Column::DownloadUntil.gte(Utc::now()))
+        .filter(entity::file::Column::Id.eq(*id))
+        .filter(entity::file::Column::DownloadUntil.gte(Utc::now()))
         .filter(
-            file::Column::Id.not_in_subquery(
+            entity::file::Column::Id.not_in_subquery(
                 Query::select()
-                    .column(access_log::Column::FileId)
-                    .from(access_log::Entity)
-                    .cond_where(Condition::all().add(access_log::Column::Successful.eq(1)))
+                    .column(entity::access_log::Column::FileId)
+                    .from(entity::access_log::Entity)
+                    .cond_where(Condition::all().add(entity::access_log::Column::Successful.eq(1)))
                     .to_owned(),
             ),
         )
         .filter(
-            file::Column::Id.not_in_subquery(
+            entity::file::Column::Id.not_in_subquery(
                 Query::select()
-                    .column(access_log::Column::FileId)
-                    .from(access_log::Entity)
-                    .group_by_col(access_log::Column::FileId)
+                    .column(entity::access_log::Column::FileId)
+                    .from(entity::access_log::Entity)
+                    .group_by_col(entity::access_log::Column::FileId)
                     .cond_having(
                         Condition::all().add(
-                            access_log::Column::FileId
+                            entity::access_log::Column::FileId
                                 .count()
                                 .gte(CONFIGURATION.max_download_tries),
                         ),
@@ -60,9 +59,9 @@ pub async fn is_upload_limit_reached(
 
     let count = entity::File::find()
         .select_only()
-        .column_as(file::Column::Id.count(), "count")
-        .filter(file::Column::UploaderIp.eq(ip))
-        .filter(file::Column::UploadedAt.gte(min_uploaded_at.naive_utc()))
+        .column_as(entity::file::Column::Id.count(), "count")
+        .filter(entity::file::Column::UploaderIp.eq(ip))
+        .filter(entity::file::Column::UploadedAt.gte(min_uploaded_at.naive_utc()))
         .into_model::<CountResult>()
         .one(database_connection)
         .await
@@ -86,7 +85,7 @@ pub async fn store_file(
         .checked_add_days(CONFIGURATION.default_lifetime)
         .ok_or(Error::DateCalculationFailed)?;
 
-    let file = file::ActiveModel {
+    let file = entity::file::ActiveModel {
         id: Set((*id).into()),
         hash: Set(hash),
         uploader_ip: Set(uploader_ip),
@@ -109,12 +108,12 @@ pub async fn store_access_log(
     file_id: &Uuid,
     successful: bool,
 ) -> Result<(), Error> {
-    let log = access_log::ActiveModel {
+    let log = entity::access_log::ActiveModel {
         id: Set(Uuid::new_v4().into()),
         ip: Set(ip.into()),
         file_id: Set((*file_id).into()),
         date_time: Set(Utc::now().naive_utc()),
-        successful: Set(if successful { 1 } else { 0 }),
+        successful: Set(i8::from(successful)),
     };
 
     entity::AccessLog::insert(log)

@@ -1,7 +1,7 @@
 use super::error::Error;
 use crate::configuration::CONFIGURATION;
-use crate::encryption::Error as EncryptionError;
-use crate::encryption::{Encoding, Encryption, EncryptionData};
+use crate::encryption;
+use crate::encryption::{Encoding, Encryption};
 use entity::file;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -12,12 +12,15 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize)]
-pub struct FileMetadata {
+pub struct Metadata {
     pub file_name: String,
     pub mime_type: String,
 }
 
-pub fn store_data<U, T: Encoding<U>>(content: T, base_name: &str) -> Result<PathBuf, Error> {
+pub fn store_data<U, T: encryption::Encoding<U>>(
+    content: &T,
+    base_name: &str,
+) -> Result<PathBuf, Error> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(base_name);
 
@@ -31,7 +34,7 @@ pub fn store_data<U, T: Encoding<U>>(content: T, base_name: &str) -> Result<Path
     };
 
     if let Err(error) = file.write_all(&content.encode()) {
-        delete_file(base_name)?;
+        delete(base_name)?;
         return Err(Error::SavingFileFailed(error));
     }
 
@@ -53,41 +56,38 @@ pub fn load_encrypted_data(base_name: &str, key: &[u8]) -> Result<Vec<u8>, Error
         return Err(Error::LoadingFileFailed(error));
     };
 
-    EncryptionData::decode(&content)
+    encryption::Data::decode(&content)
         .map_err(Error::DecrytpionFailed)?
         .decrypt(key)
         .map_err(Error::DecrytpionFailed)
 }
 
-pub fn generate_encrypted_metadata(metadata: &FileMetadata, key: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn generate_encrypted_metadata(metadata: &Metadata, key: &[u8]) -> Result<Vec<u8>, Error> {
     let metadata = serde_json::to_string(&metadata).map_err(Error::JsonSerializationFailed)?;
 
-    let encrypted_data = EncryptionData::encrypt_with_key(metadata.as_bytes(), key)
+    let encrypted_data = encryption::Data::encrypt_with_key(metadata.as_bytes(), key)
         .map_err(Error::EncryptionFailed)?
         .encode();
 
     Ok(encrypted_data)
 }
 
-pub fn load_encrypted_metadata(
-    file: &file::Model,
-    key: &[u8],
-) -> Result<Option<FileMetadata>, Error> {
+pub fn load_encrypted_metadata(file: &file::Model, key: &[u8]) -> Result<Option<Metadata>, Error> {
     let metadata_json = String::from_utf8(
-        EncryptionData::decode(&file.encrypted_metadata)
+        encryption::Data::decode(&file.encrypted_metadata)
             .map_err(Error::EncryptionFailed)?
             .decrypt(key)
             .map_err(Error::EncryptionFailed)?,
     )
-    .map_err(|inner| Error::EncryptionFailed(EncryptionError::InvalidData(inner.to_string())))?;
+    .map_err(|inner| Error::EncryptionFailed(encryption::Error::InvalidData(inner.to_string())))?;
 
-    let metadata = serde_json::from_str::<FileMetadata>(&metadata_json)
-        .map_err(Error::JsonSerializationFailed)?;
+    let metadata =
+        serde_json::from_str::<Metadata>(&metadata_json).map_err(Error::JsonSerializationFailed)?;
 
     Ok(Some(metadata))
 }
 
-pub fn delete_file(base_name: &str) -> Result<(), Error> {
+pub fn delete(base_name: &str) -> Result<(), Error> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(base_name);
 
