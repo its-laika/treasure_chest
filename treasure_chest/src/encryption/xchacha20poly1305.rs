@@ -60,12 +60,10 @@ impl Encryption<XChaCha20Poly1305Data> for XChaCha20Poly1305Data {
             .encrypt(&nonce, plain)
             .map_err(|_| Error::EncryptionFailed)?;
 
-        let encryption_data = XChaCha20Poly1305Data {
+        Ok(XChaCha20Poly1305Data {
             nonce: nonce.to_vec(),
             content,
-        };
-
-        Ok(encryption_data)
+        })
     }
 
     fn decrypt(&self, key: &[u8]) -> Result<Vec<u8>> {

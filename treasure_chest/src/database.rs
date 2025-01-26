@@ -139,9 +139,8 @@ pub async fn store_file(
     entity::File::insert(file)
         .exec(database_connection)
         .await
-        .map_err(Error::DatabaseOperationFailed)?;
-
-    Ok(())
+        .map(|_| ())
+        .map_err(Error::DatabaseOperationFailed)
 }
 
 /// Store new access log entry to database
@@ -174,7 +173,6 @@ pub async fn store_access_log(
     entity::AccessLog::insert(log)
         .exec(database_connection)
         .await
-        .map_err(Error::DatabaseOperationFailed)?;
-
-    Ok(())
+        .map(|_| ())
+        .map_err(Error::DatabaseOperationFailed)
 }

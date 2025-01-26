@@ -13,9 +13,7 @@ pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
 
     let listener = TcpListener::bind(&CONFIGURATION.listening_address).await?;
 
-    axum::serve(listener, app).await?;
-
-    Ok(())
+    axum::serve(listener, app).await
 }
 
 #[macro_export]
