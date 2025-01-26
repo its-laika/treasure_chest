@@ -6,15 +6,17 @@ use crate::hash::{Hash, Hashing};
 use crate::request;
 use crate::return_logged;
 use crate::{database, encryption};
-use axum::body;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use axum::{extract::Request, http::StatusCode, Json};
 use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
+use futures::{StreamExt, TryStreamExt};
 use sea_orm::DatabaseConnection;
 use serde::Serialize;
+use std::io::{Error as IoError, ErrorKind};
+use tokio_util::io::StreamReader;
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -39,19 +41,26 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     }
 
-    let Ok(content) = body::to_bytes(request.into_body(), CONFIGURATION.body_max_size).await else {
-        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    let content = match extract_body(request).await {
+        Ok(content) => content,
+        Err(_) => return Err(StatusCode::PAYLOAD_TOO_LARGE),
     };
 
-    let (encryption_data, key) = match encryption::Data::encrypt(&content) {
+    let (encryption_data, key) = match encryption::Data::encrypt(content) {
         Ok(result) => result,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    let id = Uuid::new_v4();
+
+    if let Err(error) = file::store_data(&id, encryption_data.encode()) {
+        return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     let encrypted_metadata =
         match serde_json::to_string(&std::convert::Into::<file::Metadata>::into(headers))
             .map_err(Error::JsonSerializationFailed)
-            .and_then(|json| encryption::Data::encrypt_with_key(json.as_bytes(), &key))
+            .and_then(|json| encryption::Data::encrypt_with_key(json.bytes(), &key))
             .map(encryption::definitions::Encoding::encode)
         {
             Ok(metadata) => metadata,
@@ -65,12 +74,6 @@ pub async fn handler(
     let hash = match Hash::hash(&key) {
         Ok(hash) => hash,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
-    };
-
-    let id = Uuid::new_v4();
-
-    if let Err(error) = file::store_data(&id, &encryption_data.encode()) {
-        return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     if let Err(error) = database::store_file(
@@ -89,4 +92,30 @@ pub async fn handler(
         id: id.into(),
         key: BASE64_URL_SAFE.encode(&key),
     }))
+}
+
+async fn extract_body(request: Request) -> Result<Vec<u8>, IoError> {
+    let mut body = vec![];
+
+    let body_data_stream = request
+        .into_body()
+        .into_data_stream()
+        /* Add one byte to max size for range check later. If this byte is filled,
+         * we know that the body is too large. */
+        .take(CONFIGURATION.body_max_size + 1)
+        .map_err(|err| IoError::new(ErrorKind::Other, err));
+
+    let body_reader = StreamReader::new(body_data_stream);
+
+    futures::pin_mut!(body_reader);
+    tokio::io::copy(&mut body_reader, &mut body).await?;
+
+    if body.len() > CONFIGURATION.body_max_size {
+        return Err(IoError::new(
+            ErrorKind::StorageFull,
+            "Max body size exceeded",
+        ));
+    }
+
+    Ok(body)
 }

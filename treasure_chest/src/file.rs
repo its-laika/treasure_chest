@@ -31,7 +31,7 @@ pub struct Metadata {
 ///
 /// * [`Ok`]\([`PathBuf`]) - path to file
 /// * [`Err`]\([`Error::SavingFileFailed`]) - if file couldn't be saved
-pub fn store_data(id: &Uuid, content: &[u8]) -> Result<PathBuf> {
+pub fn store_data(id: &Uuid, content: Vec<u8>) -> Result<PathBuf> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(id.to_string());
 
@@ -41,7 +41,7 @@ pub fn store_data(id: &Uuid, content: &[u8]) -> Result<PathBuf> {
         .open(&file_path)
         .map_err(Error::SavingFileFailed)?;
 
-    if let Err(error) = file.write_all(content) {
+    if let Err(error) = file.write_all(&content) {
         delete(id)?;
         return Err(Error::SavingFileFailed(error));
     }

@@ -8,7 +8,7 @@ pub trait Encoding<T> {
     fn encode(self) -> Vec<u8>;
 
     /// Decodes previously encoded data so that it can be decrypted later.
-    fn decode(data: &[u8]) -> Result<T>;
+    fn decode<TI: IntoIterator<Item = u8>>(data: TI) -> Result<T>;
 }
 
 /// Provides functions to create encrypted data and decrypt it back.
@@ -24,7 +24,7 @@ pub trait Encryption<T> {
     ///
     /// * Err([`Error`]) on encryption failure
     /// * Ok(`(encryption data, decryption key)`) on success
-    fn encrypt(plain: &[u8]) -> Result<(T, Vec<u8>)>;
+    fn encrypt<TI: IntoIterator<Item = u8>>(plain: TI) -> Result<(T, Vec<u8>)>;
 
     // Encrypts plain data with given key and returns encryption-data.
     ///
@@ -37,7 +37,7 @@ pub trait Encryption<T> {
     ///
     /// * Err([`Error`]) on encryption failure
     /// * Ok(`encryption data`) on success
-    fn encrypt_with_key(plain: &[u8], key: &[u8]) -> Result<T>;
+    fn encrypt_with_key<TI: IntoIterator<Item = u8>>(plain: TI, key: &[u8]) -> Result<T>;
 
     /// Decrypts data with given key.
     ///
@@ -49,5 +49,5 @@ pub trait Encryption<T> {
     ///
     /// * Err([`Error`]) on decryption failure
     /// * Ok(`decrypted data`) on success
-    fn decrypt(&self, key: &[u8]) -> Result<Vec<u8>>;
+    fn decrypt(self, key: &[u8]) -> Result<Vec<u8>>;
 }

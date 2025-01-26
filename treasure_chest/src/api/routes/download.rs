@@ -54,14 +54,14 @@ pub async fn handler(
     }
 
     let content = match file::load_data(&id)
-        .and_then(|data| encryption::Data::decode(&data))
+        .and_then(encryption::Data::decode)
         .and_then(|data| data.decrypt(&key))
     {
         Ok(content) => content,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    let response_headers = match encryption::Data::decode(&file.encrypted_metadata)
+    let response_headers = match encryption::Data::decode(file.encrypted_metadata)
         .and_then(|data| data.decrypt(&key))
         .and_then(|data| String::from_utf8(data).map_err(|_| Error::DecryptionFailed))
         .and_then(|json| {

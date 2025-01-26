@@ -3,7 +3,7 @@ use crate::configuration::CONFIGURATION;
 use axum::{routing::post, Router};
 use sea_orm::DatabaseConnection;
 use std::io;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, signal::ctrl_c};
 
 pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
     let app = Router::new()
@@ -13,7 +13,11 @@ pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
 
     let listener = TcpListener::bind(&CONFIGURATION.listening_address).await?;
 
-    axum::serve(listener, app).await
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            let _ = ctrl_c().await;
+        })
+        .await
 }
 
 #[macro_export]
