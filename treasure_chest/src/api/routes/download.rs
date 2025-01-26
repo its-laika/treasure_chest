@@ -1,4 +1,8 @@
 use crate::database;
+use crate::encryption;
+use crate::encryption::Encoding;
+use crate::encryption::Encryption;
+use crate::error::Error;
 use crate::file;
 use crate::request;
 use crate::return_logged;
@@ -49,18 +53,26 @@ pub async fn handler(
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR)
     }
 
-    let content = match file::load_encrypted_data(&id.to_string(), &key) {
+    let content = match file::load_data(&id)
+        .and_then(|data| encryption::Data::decode(&data))
+        .and_then(|data| data.decrypt(&key))
+    {
         Ok(content) => content,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    let response_headers = match file::load_encrypted_metadata(&file, &key) {
-        Ok(Some(metadata)) => request::build_headers(&metadata),
+    let response_headers = match encryption::Data::decode(&file.encrypted_metadata)
+        .and_then(|data| data.decrypt(&key))
+        .and_then(|data| String::from_utf8(data).map_err(|_| Error::DecryptionFailed))
+        .and_then(|json| {
+            serde_json::from_str::<file::Metadata>(&json).map_err(Error::JsonSerializationFailed)
+        }) {
+        Ok(metadata) => metadata.into(),
         _ => HeaderMap::new(),
     };
 
-    if let Err(error) = file::delete(&id.to_string()) {
-        log::error!("Could not delete used file {}: {:?}", id.to_string(), error);
+    if let Err(error) = file::delete(&id) {
+        log::error!("Could not delete used file {}: {error:?}", id.to_string());
     }
 
     Ok((response_headers, content))

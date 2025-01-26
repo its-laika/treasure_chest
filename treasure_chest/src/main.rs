@@ -1,6 +1,6 @@
 use configuration::CONFIGURATION;
 use migration::{Migrator, MigratorTrait};
-use sea_orm::{ConnectOptions, Database, DbErr};
+use sea_orm::{ConnectOptions, Database};
 use std::{process, time::Duration};
 
 mod api;
@@ -14,7 +14,7 @@ mod request;
 mod util;
 
 #[tokio::main]
-async fn main() -> Result<(), DbErr> {
+async fn main() {
     env_logger::init();
 
     /* Init configuration */
@@ -39,7 +39,9 @@ async fn main() -> Result<(), DbErr> {
     };
 
     log::info!("Migrating database...");
-    Migrator::up(&database_connection, None).await?;
+    if let Err(error) = Migrator::up(&database_connection, None).await {
+        log::error!("Could not migrate database: {error}");
+    };
 
     log::info!("Starting API on {}...", &CONFIGURATION.listening_address);
 
@@ -48,8 +50,9 @@ async fn main() -> Result<(), DbErr> {
     }
 
     log::info!("API shut down. Closing database connection...");
-    database_connection.close().await?;
+    if let Err(error) = database_connection.close().await {
+        log::error!("Could not close database connection: {error}");
+    }
 
     log::info!("Bye.");
-    Ok(())
 }

@@ -1,8 +1,7 @@
-use super::error::Error;
+//! Module containing functions for saving / reading encrypted data on disk
+
+use super::error::{Error, Result};
 use crate::configuration::CONFIGURATION;
-use crate::encryption;
-use crate::encryption::{Encoding, Encryption};
-use entity::file;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::PathBuf;
@@ -10,102 +9,98 @@ use std::{
     fs::{self, OpenOptions},
     io::{Read, Write},
 };
+use uuid::Uuid;
 
+/// File metadata that will be stored serialized and encrypted in the database
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
+    /// Name of the uploaded file
     pub file_name: String,
+    /// MIME type of the uploaded file
     pub mime_type: String,
 }
 
-pub fn store_data<U, T: encryption::Encoding<U>>(
-    content: &T,
-    base_name: &str,
-) -> Result<PathBuf, Error> {
+/// Stores new file on disk
+///
+/// # Arguments
+///
+/// * `id` - File id (to use as file name)
+/// * `content` - Content to store
+///
+/// # Returns
+///
+/// * [`Ok`]\([`PathBuf`]) - path to file
+/// * [`Err`]\([`Error::SavingFileFailed`]) - if file couldn't be saved
+pub fn store_data(id: &Uuid, content: &[u8]) -> Result<PathBuf> {
     let mut file_path = CONFIGURATION.file_path.clone();
-    file_path.push(base_name);
+    file_path.push(id.to_string());
 
-    let mut file = match OpenOptions::new()
+    let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(&file_path)
-    {
-        Ok(file) => file,
-        Err(error) => return Err(Error::SavingFileFailed(error)),
-    };
+        .map_err(Error::SavingFileFailed)?;
 
-    if let Err(error) = file.write_all(&content.encode()) {
-        delete(base_name)?;
+    if let Err(error) = file.write_all(content) {
+        delete(id)?;
         return Err(Error::SavingFileFailed(error));
     }
 
     Ok(file_path)
 }
 
-pub fn load_encrypted_data(base_name: &str, key: &[u8]) -> Result<Vec<u8>, Error> {
+/// Load data from disk
+///
+/// # Arguments
+///
+/// * `id` - File id
+///
+/// # Returns
+///
+/// * [`Ok`]\([`Vec<u8>`]) - file content
+/// * [`Err`]\([`Error::LoadingFileFailed`]) - if file couldn't be loaded
+pub fn load_data(id: &Uuid) -> Result<Vec<u8>> {
     let mut file_path = CONFIGURATION.file_path.clone();
-    file_path.push(base_name);
+    file_path.push(id.to_string());
 
     let mut content = vec![];
 
-    let mut file = match OpenOptions::new().read(true).open(&file_path) {
-        Ok(file) => file,
-        Err(error) => return Err(Error::LoadingFileFailed(error)),
-    };
+    let mut file = OpenOptions::new()
+        .read(true)
+        .open(&file_path)
+        .map_err(Error::LoadingFileFailed)?;
 
     if let Err(error) = file.read_to_end(&mut content) {
         return Err(Error::LoadingFileFailed(error));
     };
 
-    encryption::Data::decode(&content)
-        .map_err(Error::DecrytpionFailed)?
-        .decrypt(key)
-        .map_err(Error::DecrytpionFailed)
+    Ok(content)
 }
 
-pub fn generate_encrypted_metadata(metadata: &Metadata, key: &[u8]) -> Result<Vec<u8>, Error> {
-    let metadata = serde_json::to_string(&metadata).map_err(Error::JsonSerializationFailed)?;
-
-    let encrypted_data = encryption::Data::encrypt_with_key(metadata.as_bytes(), key)
-        .map_err(Error::EncryptionFailed)?
-        .encode();
-
-    Ok(encrypted_data)
-}
-
-pub fn load_encrypted_metadata(file: &file::Model, key: &[u8]) -> Result<Option<Metadata>, Error> {
-    let metadata_json = String::from_utf8(
-        encryption::Data::decode(&file.encrypted_metadata)
-            .map_err(Error::EncryptionFailed)?
-            .decrypt(key)
-            .map_err(Error::EncryptionFailed)?,
-    )
-    .map_err(|inner| Error::EncryptionFailed(encryption::Error::InvalidData(inner.to_string())))?;
-
-    let metadata =
-        serde_json::from_str::<Metadata>(&metadata_json).map_err(Error::JsonSerializationFailed)?;
-
-    Ok(Some(metadata))
-}
-
-pub fn delete(base_name: &str) -> Result<(), Error> {
+/// Ensure file is deleted
+///
+/// # Arguments
+///
+/// * `id` - File id
+///
+/// # Returns
+/// * [`Ok`]\(`()`) - file doesn't exist (anymore)  
+/// * [`Err`]\([`Error::DeletingFileFailed`]) - file couldn't be deleted
+pub fn delete(id: &Uuid) -> Result<()> {
     let mut file_path = CONFIGURATION.file_path.clone();
-    file_path.push(base_name);
+    file_path.push(id.to_string());
 
-    match fs::exists(&file_path) {
-        Ok(true) => (),
-        Ok(false) => return Ok(()),
-        Err(error) => return Err(Error::DeletingFileFailed(error)),
+    if !(fs::exists(&file_path).map_err(Error::DeletingFileFailed)?) {
+        return Ok(());
     }
 
-    let metadata = match fs::metadata(&file_path) {
-        Ok(metadata) => metadata,
-        Err(error) => return Err(Error::DeletingFileFailed(error)),
-    };
-
-    if !metadata.is_file() {
+    if !fs::metadata(&file_path)
+        .map_err(Error::DeletingFileFailed)?
+        .is_file()
+    {
         return Err(Error::DeletingFileFailed(io::Error::new(
             io::ErrorKind::IsADirectory,
-            "Not a file but directory given",
+            "Directory given",
         )));
     }
 

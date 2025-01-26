@@ -1,6 +1,9 @@
-use crate::encryption;
+//! Error module for this whole crate
+
 use sea_orm::DbErr;
-use std::fmt;
+use std::{fmt, result};
+
+pub type Result<T> = result::Result<T, Error>;
 
 pub enum Error {
     DateCalculationFailed,
@@ -10,11 +13,13 @@ pub enum Error {
     SavingFileFailed(std::io::Error),
     LoadingFileFailed(std::io::Error),
     DeletingFileFailed(std::io::Error),
-    ReadingBodyFailed(axum::Error),
-    EncryptionFailed(encryption::Error),
-    DecrytpionFailed(encryption::Error),
+    EncryptionFailed,
+    DecryptionFailed,
     KeyInvalid,
     JsonSerializationFailed(serde_json::Error),
+    InvalidEncryptionData(String),
+    HashingFailure(String),
+    HashVerificationFailure(String),
 }
 
 impl fmt::Debug for Error {
@@ -24,16 +29,18 @@ impl fmt::Debug for Error {
             Self::DatabaseOperationFailed(inner) => {
                 write!(f, "Database operation failed: {inner}")
             }
-            Self::IpHeaderMissing(header_name) => write!(f, "IP header {header_name} missing"),
-            Self::IpHeaderInvalid => write!(f, "IP header invalid"),
+            Self::IpHeaderMissing(header_name) => write!(f, "Ip header {header_name} missing"),
+            Self::IpHeaderInvalid => write!(f, "Ip header invalid"),
             Self::SavingFileFailed(inner) => write!(f, "Saving file failed: {inner}"),
             Self::LoadingFileFailed(inner) => write!(f, "Loading file failed: {inner}"),
             Self::DeletingFileFailed(inner) => write!(f, "Removing file failed: {inner}"),
-            Self::ReadingBodyFailed(inner) => write!(f, "Reading body failed: {inner}"),
-            Self::EncryptionFailed(inner) => write!(f, "Encryption failed: {inner:?}"),
-            Self::DecrytpionFailed(inner) => write!(f, "Decryption failed: {inner:?}"),
+            Self::EncryptionFailed => write!(f, "Encryption failed"),
+            Self::DecryptionFailed => write!(f, "Decryption failed"),
             Self::KeyInvalid => write!(f, "Key invalid"),
             Self::JsonSerializationFailed(inner) => write!(f, "JSON Serialization failed: {inner}"),
+            Self::InvalidEncryptionData(inner) => write!(f, "Invalid encryption data: {inner}"),
+            Self::HashingFailure(inner) => write!(f, "Hashing failure: {inner}"),
+            Self::HashVerificationFailure(inner) => write!(f, "Hash verification failure: {inner}"),
         }
     }
 }

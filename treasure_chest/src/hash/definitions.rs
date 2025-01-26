@@ -1,20 +1,4 @@
-use argon2::password_hash::Error as ArgonError;
-use std::fmt::{self, Debug, Formatter};
-
-/// Possible errors while hashing / verifying
-pub enum Error {
-    HashingFailure(ArgonError),
-    VerifyingFailure(ArgonError),
-}
-
-impl Debug for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::HashingFailure(inner) => write!(f, "Hashing failed: {inner:?}"),
-            Self::VerifyingFailure(inner) => write!(f, "Verifiying failed: {inner:?}"),
-        }
-    }
-}
+use crate::error::Result;
 
 /// Provides functions to hash data or to verify hashes
 pub trait Hashing {
@@ -26,8 +10,9 @@ pub trait Hashing {
     ///
     /// # Returns
     ///
-    /// Hash on success or `Error` if hashing fails.
-    fn hash(data: &[u8]) -> Result<String, Error>;
+    /// * [`Ok`]\([`String`]) - Hash
+    /// * [`Err`]\([`Error::HashingFailure`]) - On hashing failure
+    fn hash(data: &[u8]) -> Result<String>;
 
     /// Verifies given `data` against `hash`
     ///
@@ -38,7 +23,8 @@ pub trait Hashing {
     ///
     /// # Returns
     ///
-    /// Either bool that says whether given data matches hash or `Error` if
-    /// verification could not be done.
-    fn verify(data: &[u8], hash: &str) -> Result<bool, Error>;
+    /// * [`Ok`]\(true) - `data` matches `hash`
+    /// * [`Ok`]\(false) - `data` *does not* match `hash`
+    /// * [`Err`]\([`Error::HashVerificationFailure`]) - On verification failure
+    fn verify(data: &[u8], hash: &str) -> Result<bool>;
 }

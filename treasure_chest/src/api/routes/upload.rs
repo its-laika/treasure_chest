@@ -1,9 +1,12 @@
-use crate::database;
+use crate::configuration::CONFIGURATION;
+use crate::encryption::{Encoding, Encryption};
 use crate::error::Error;
 use crate::file;
 use crate::hash::{Hash, Hashing};
 use crate::request;
 use crate::return_logged;
+use crate::{database, encryption};
+use axum::body;
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
@@ -36,15 +39,22 @@ pub async fn handler(
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     }
 
-    let (encryption_data, key) = match request::encrypt_body(request.into_body()).await {
-        Ok(encryption_data) => encryption_data,
-        Err(Error::ReadingBodyFailed(_)) => return Err(StatusCode::BAD_REQUEST),
+    let Ok(content) = body::to_bytes(request.into_body(), CONFIGURATION.body_max_size).await else {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    };
+
+    let (encryption_data, key) = match encryption::Data::encrypt(&content) {
+        Ok(result) => result,
         Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
     };
 
     let encrypted_metadata =
-        match file::generate_encrypted_metadata(&request::get_metadata(&headers), &key) {
-            Ok(encrypted_metadata) => encrypted_metadata,
+        match serde_json::to_string(&std::convert::Into::<file::Metadata>::into(headers))
+            .map_err(Error::JsonSerializationFailed)
+            .and_then(|json| encryption::Data::encrypt_with_key(json.as_bytes(), &key))
+            .map(encryption::definitions::Encoding::encode)
+        {
+            Ok(metadata) => metadata,
             Err(error) => return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR),
         };
 
@@ -59,7 +69,7 @@ pub async fn handler(
 
     let id = Uuid::new_v4();
 
-    if let Err(error) = file::store_data(&encryption_data, &id.to_string()) {
+    if let Err(error) = file::store_data(&id, &encryption_data.encode()) {
         return_logged!(error, StatusCode::INTERNAL_SERVER_ERROR);
     };
 

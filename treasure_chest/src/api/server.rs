@@ -2,10 +2,10 @@ use super::routes;
 use crate::configuration::CONFIGURATION;
 use axum::{routing::post, Router};
 use sea_orm::DatabaseConnection;
-use std::io::Error;
+use std::io;
 use tokio::net::TcpListener;
 
-pub async fn listen(connection: DatabaseConnection) -> Result<(), Error> {
+pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
     let app = Router::new()
         .route("/files", post(routes::upload::handler))
         .route("/files/{id}/download", post(routes::download::handler))

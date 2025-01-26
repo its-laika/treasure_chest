@@ -8,6 +8,8 @@ pub const CONFIG_ENV_PREFIX: &str = "TREASURE_CHEST";
 
 pub static CONFIGURATION: LazyLock<Configuration> = LazyLock::new(build);
 
+/// Configuration that can be automatically read from Json / env,
+/// containing only base types. See [`Configuration`]
 #[derive(Deserialize)]
 struct RawConfiguration {
     #[serde(rename = "ConnectionString")]
@@ -22,23 +24,41 @@ struct RawConfiguration {
     pub user_uploads_per_day: u32,
     #[serde(rename = "MaxDownloadTries")]
     pub max_download_tries: u32,
-    #[serde(rename = "IPHeaderName")]
+    #[serde(rename = "IpHeaderName")]
     pub ip_header_name: String,
     #[serde(rename = "BodyMaxSize")]
     pub body_max_size: usize,
 }
 
+/// Configuration of program
 pub struct Configuration {
+    /// Database connection string
     pub connection_string: String,
+    /// Address to listen to (e.g. "_localhost:8080_")
     pub listening_address: String,
+    /// Path of encrypted files
     pub file_path: PathBuf,
-    pub default_lifetime: Days,
+    /// Lifetime of uploaded files until deletion
+    pub file_lifetime: Days,
+    /// Number of max uploads by a single IP (rate limiting)
     pub ip_uploads_per_day: u32,
+    /// Number of max tries to access a file (in case of wrong keys etc)
     pub max_download_tries: u32,
+    /// Name of IP header, set by proxy server
     pub ip_header_name: String,
+    /// Max size of request body (in bytes)
     pub body_max_size: usize,
 }
 
+/// Builds [`Configuration`] by configuration file and env vars
+///
+/// # Returns
+///
+/// Instance of [`Configuration`]
+///
+/// # Note
+///
+/// If configuration is not buildable, it exits the program.
 pub fn build() -> Configuration {
     let Ok(raw) = config::Config::builder()
         .add_source(File::new(CONFIG_FILE_NAME, FileFormat::Json).required(false))
@@ -55,7 +75,7 @@ pub fn build() -> Configuration {
         connection_string: raw.connection_string,
         listening_address: raw.listening_address,
         file_path: raw.file_path,
-        default_lifetime: Days::new(raw.default_days_lifetime),
+        file_lifetime: Days::new(raw.default_days_lifetime),
         max_download_tries: raw.max_download_tries,
         ip_uploads_per_day: raw.user_uploads_per_day,
         ip_header_name: raw.ip_header_name,

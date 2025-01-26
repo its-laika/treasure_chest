@@ -1,4 +1,4 @@
-mod definitions;
+pub(crate) mod definitions;
 mod xchacha20poly1305;
 
 pub use definitions::*;

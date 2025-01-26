@@ -1,8 +1,8 @@
-use super::error::Error;
+//! Module containing functions that are related to HTTP requests
+
+use super::error::{Error, Result};
 use crate::configuration::CONFIGURATION;
-use crate::encryption::{self, Encryption};
 use crate::file;
-use axum::body::Body;
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::HeaderMap;
 use regex::Regex;
@@ -14,62 +14,122 @@ const FALLBACK_CONTENT_TYPE: &str = "application/octet-stream";
 static FILE_NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new("filename=\"(.*?)\"").unwrap());
 
-pub type DecryptionKey = Vec<u8>;
-pub type EncryptionResult = Result<(encryption::Data, DecryptionKey), Error>;
-
-pub fn get_request_ip(headers: &HeaderMap) -> Result<String, Error> {
-    return Ok(headers
+/// Tries getting request Ip from given `headers`
+///
+/// The header name defined in [`CONFIGURATION`] will be checked for an (Ip)
+/// value and then returned. If the value is missing / empty, an [`Error`] is
+/// returned.
+///
+/// # Arguments
+///
+/// * `headers` - Headers to check
+///
+/// # Returns
+///
+/// * [`Ok`]\(_ip_) - Request Ip (header value)  
+/// * [`Err`]\([`Error::IpHeaderInvalid`]) - Ip header not valid (client error)
+/// * [`Err`]\([`Error::IpHeaderMissing`]) - Ip header not set (probably proxy misconfiguration)
+pub fn get_request_ip(headers: &HeaderMap) -> Result<String> {
+    Ok(headers
         .get(CONFIGURATION.ip_header_name.clone())
         .ok_or(Error::IpHeaderMissing(CONFIGURATION.ip_header_name.clone()))?
         .to_str()
         .map_err(|_| Error::IpHeaderInvalid)?
-        .to_string());
+        .to_string())
 }
 
-pub async fn encrypt_body(request_body: Body) -> EncryptionResult {
-    let content = axum::body::to_bytes(request_body, CONFIGURATION.body_max_size)
-        .await
-        .map_err(Error::ReadingBodyFailed)?;
+impl From<file::Metadata> for HeaderMap {
+    fn from(val: file::Metadata) -> Self {
+        let mut headers = HeaderMap::new();
 
-    let (encryption_data, key) =
-        encryption::Data::encrypt(&content).map_err(Error::EncryptionFailed)?;
+        if let Ok(content_disposition) =
+            format!("attachment; filename=\"{}\"", val.file_name).parse()
+        {
+            headers.append(CONTENT_DISPOSITION, content_disposition);
+        }
 
-    Ok((encryption_data, key))
-}
+        if let Ok(content_type) = val.mime_type.parse() {
+            headers.append(CONTENT_TYPE, content_type);
+        }
 
-pub fn get_metadata(headers: &HeaderMap) -> file::Metadata {
-    let file_name = headers
-        .get(CONTENT_DISPOSITION)
-        .and_then(|header_value| header_value.to_str().map(String::from).ok())
-        .and_then(|header_value| {
-            FILE_NAME_REGEX
-                .captures(&header_value)
-                .and_then(|captures| captures.get(1))
-                .map(|capture| capture.as_str().to_string())
-        });
-
-    let mime_type = headers
-        .get(CONTENT_TYPE)
-        .and_then(|header_value| header_value.to_str().map(String::from).ok());
-
-    file::Metadata {
-        file_name: file_name.unwrap_or(Uuid::new_v4().to_string()),
-        mime_type: mime_type.unwrap_or(FALLBACK_CONTENT_TYPE.into()),
+        headers
     }
 }
 
-pub fn build_headers(metadata: &file::Metadata) -> HeaderMap {
-    let mut headers = HeaderMap::new();
+impl From<HeaderMap> for file::Metadata {
+    fn from(value: HeaderMap) -> Self {
+        let file_name = value
+            .get(CONTENT_DISPOSITION)
+            .and_then(|header_value| header_value.to_str().map(String::from).ok())
+            .and_then(|header_value| {
+                FILE_NAME_REGEX
+                    .captures(&header_value)
+                    .and_then(|captures| captures.get(1))
+                    .map(|capture| capture.as_str().to_string())
+            });
 
-    if let Ok(content_disposition) =
-        format!("attachment; filename=\"{}\"", metadata.file_name).parse()
-    {
-        headers.append(CONTENT_DISPOSITION, content_disposition);
+        let mime_type = value
+            .get(CONTENT_TYPE)
+            .and_then(|header_value| header_value.to_str().map(String::from).ok());
+
+        Self {
+            file_name: file_name.unwrap_or(Uuid::new_v4().to_string()),
+            mime_type: mime_type.unwrap_or(FALLBACK_CONTENT_TYPE.into()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_metadata_to_headers() {
+        let metadata = file::Metadata {
+            file_name: "My file.exe".into(),
+            mime_type: "my/mimetype".into(),
+        };
+
+        let headers: HeaderMap = metadata.into();
+
+        assert_eq!(2, headers.len());
+        assert_eq!(
+            "attachment; filename=\"My file.exe\"",
+            headers
+                .get("Content-Disposition")
+                .unwrap()
+                .to_str()
+                .unwrap()
+        );
+        assert_eq!(
+            "my/mimetype",
+            headers.get("Content-Type").unwrap().to_str().unwrap()
+        )
     }
 
-    if let Ok(content_type) = metadata.mime_type.parse() {
-        headers.append(CONTENT_TYPE, content_type);
-    }
+    #[test]
+    fn test_from_headers_to_metadata() {
+        let mut headers = HeaderMap::new();
+        headers.append(
+            "Content-Disposition",
+            "attachment;  filename=\"My file.gif\" what=ever"
+                .parse()
+                .unwrap(),
+        );
+        headers.append("Content-Type", "my/mime+type".parse().unwrap());
 
-    headers
+        let metadata: file::Metadata = headers.into();
+
+        assert_eq!("My file.gif", metadata.file_name);
+        assert_eq!("my/mime+type", metadata.mime_type);
+    }
+    #[test]
+    fn test_with_missing_headers_to_metadata() {
+        let headers = HeaderMap::new();
+
+        let metadata: file::Metadata = headers.into();
+
+        assert!(!metadata.file_name.is_empty());
+        assert_eq!("application/octet-stream", metadata.mime_type);
+    }
 }
