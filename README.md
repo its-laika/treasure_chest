@@ -15,6 +15,7 @@ Heavily wip and not feature complete
 - [ ] Clean up code
 - [ ] Tests
 - [ ] Documentation
+- [ ] Memory usage is pretty high. I believe flushing the files affects this and leads to memory peaks. Fix that.
 
 ## License
 MIT
