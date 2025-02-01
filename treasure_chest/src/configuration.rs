@@ -19,7 +19,7 @@ struct RawConfiguration {
     #[serde(rename = "FilePath")]
     pub file_path: PathBuf,
     #[serde(rename = "DaysFileAvailable")]
-    pub default_days_lifetime: u64,
+    pub days_file_available: u64,
     #[serde(rename = "UserUploadsPerDay")]
     pub user_uploads_per_day: u32,
     #[serde(rename = "MaxDownloadTries")]
@@ -40,6 +40,8 @@ pub struct Configuration {
     pub file_path: PathBuf,
     /// Lifetime of uploaded files until deletion
     pub file_lifetime: Days,
+    /// Raw value of `file_lifetime`
+    pub days_file_available: u64,
     /// Number of max uploads by a single IP (rate limiting)
     pub ip_uploads_per_day: u32,
     /// Number of max tries to access a file (in case of wrong keys etc)
@@ -75,7 +77,8 @@ pub fn build() -> Configuration {
         connection_string: raw.connection_string,
         listening_address: raw.listening_address,
         file_path: raw.file_path,
-        file_lifetime: Days::new(raw.default_days_lifetime),
+        file_lifetime: Days::new(raw.days_file_available),
+        days_file_available: raw.days_file_available,
         max_download_tries: raw.max_download_tries,
         ip_uploads_per_day: raw.user_uploads_per_day,
         ip_header_name: raw.ip_header_name,

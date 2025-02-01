@@ -1,0 +1,21 @@
+use crate::configuration::CONFIGURATION;
+use axum::response::IntoResponse;
+use axum::Json;
+use serde::Serialize;
+
+#[derive(Serialize)]
+pub struct Response {
+    #[serde(rename = "BodyMaxSize")]
+    pub body_max_size: usize,
+    #[serde(rename = "DaysFileAvailable")]
+    pub default_days_lifetime: u64,
+}
+
+pub async fn handler() -> impl IntoResponse {
+    let response = Response {
+        body_max_size: CONFIGURATION.body_max_size,
+        default_days_lifetime: CONFIGURATION.days_file_available,
+    };
+
+    Json(response)
+}

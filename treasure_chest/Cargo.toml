@@ -10,7 +10,7 @@ members = [".", "entity", "migration"]
 axum = "0.8.1"
 argon2 = "0.5.3"
 base64 = "0.22.1"
-chacha20poly1305 = { version = "0.10.1", features = ["alloc"] }
+chacha20poly1305 = "0.10.1"
 chrono = "0.4.39"
 config = "0.15.6"
 entity = { path = "entity" }
