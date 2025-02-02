@@ -11,14 +11,29 @@ use tokio::{
 };
 use uuid::Uuid;
 
-const CLEANUP_INTERVAL_SECONDS: u64 = 10 * 1; /* 10 minutes */
+/// The interval in seconds between each cleanup operation.
+/// Currently set to 10 minutes.
+const CLEANUP_INTERVAL_SECONDS: u64 = 10 * 60; /* 10 minutes */
 
+/// Runs the cleanup process in a loop, until `shutdown` signal is received.
+///
+/// # Arguments
+///
+/// * `database_connection` - A connection to the database.
+/// * `shutdown` - A broadcast receiver to listen for shutdown signals.
+///
+/// # Returns
+///
+/// * `Result<()>` - Returns an Ok result if the cleanup process runs successfully,
+///   or an error if something goes wrong.
 pub async fn run(
     database_connection: DatabaseConnection,
     mut shutdown: broadcast::Receiver<()>,
 ) -> Result<()> {
     loop {
-        wait(&mut shutdown).await?;
+        if !wait(&mut shutdown).await? {
+            return Ok(());
+        }
 
         log::info!("Cleaning up outdating files...");
 
@@ -27,7 +42,17 @@ pub async fn run(
     }
 }
 
-async fn wait(shutdown: &mut broadcast::Receiver<()>) -> Result<()> {
+/// Waits for defined cleanup interval, returning early if `shutdown` is received.
+///
+/// # Arguments
+///
+/// * `shutdown` - A broadcast receiver to listen for shutdown signals.
+///
+/// # Returns
+///
+/// * `Result<bool>` - Returns an Ok result if the wait completes successfully,
+///   with `true` if the wait was not interrupted by a shutdown signal, or `false` otherwise.
+async fn wait(shutdown: &mut broadcast::Receiver<()>) -> Result<bool> {
     let sleep_time = Duration::from_secs(1);
 
     for _ in 0..CLEANUP_INTERVAL_SECONDS {
@@ -35,15 +60,25 @@ async fn wait(shutdown: &mut broadcast::Receiver<()>) -> Result<()> {
         match shutdown.try_recv() {
             Err(TryRecvError::Empty) => (),
             Err(_) => return Err(Error::BroadcastRecvFailed),
-            Ok(_) => return Ok(()),
+            Ok(()) => return Ok(false),
         };
 
         time::sleep(sleep_time).await;
     }
 
-    Ok(())
+    Ok(true)
 }
 
+/// Deletes outdated files from the file system.
+///
+/// # Arguments
+///
+/// * `database_connection` - A connection to the database.
+///
+/// # Returns
+///
+/// * `Result<()>` - Returns an Ok result if the cleanup process runs successfully,
+///   or an error if something goes wrong.
 async fn delete_outdated_files(database_connection: &DatabaseConnection) -> Result<()> {
     let downloadable_file_ids = database::get_downloadable_file_ids(database_connection).await?;
 
