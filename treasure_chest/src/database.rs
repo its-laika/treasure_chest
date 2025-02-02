@@ -64,6 +64,56 @@ pub async fn get_downloadable_file(
         .map_err(Error::DatabaseOperationFailed)
 }
 
+/// Gets all file ids from database that can currently be downloaded
+///
+/// Checks if file has already been downloaded and if it's still in time range.
+///
+/// # Arguments
+///
+/// * `database_connection` - [`DatabaseConnection`] to use
+///
+/// # Returns
+///
+/// [`Ok`]\([`Vec`]\([`uuid::Uuid`])): ids of all files that can still be downloaded,
+/// [`Err`]\([`Error::DatabaseOperationFailed`]) on error
+pub async fn get_downloadable_file_ids(
+    database_connection: &DatabaseConnection,
+) -> Result<Vec<Uuid>> {
+    entity::File::find()
+        .filter(entity::file::Column::DownloadUntil.gte(Utc::now()))
+        .filter(
+            entity::file::Column::Id.not_in_subquery(
+                Query::select()
+                    .column(entity::access_log::Column::FileId)
+                    .from(entity::access_log::Entity)
+                    .cond_where(Condition::all().add(entity::access_log::Column::Successful.eq(1)))
+                    .to_owned(),
+            ),
+        )
+        .filter(
+            entity::file::Column::Id.not_in_subquery(
+                Query::select()
+                    .column(entity::access_log::Column::FileId)
+                    .from(entity::access_log::Entity)
+                    .group_by_col(entity::access_log::Column::FileId)
+                    .cond_having(
+                        Condition::all().add(
+                            entity::access_log::Column::FileId
+                                .count()
+                                .gte(CONFIGURATION.max_download_tries),
+                        ),
+                    )
+                    .to_owned(),
+            ),
+        )
+        .select_only()
+        .column(entity::file::Column::Id)
+        .into_tuple()
+        .all(database_connection)
+        .await
+        .map_err(Error::DatabaseOperationFailed)
+}
+
 /// Returns whether given `ip` may currently upload a file
 ///
 /// # Arguments

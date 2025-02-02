@@ -6,9 +6,12 @@ use axum::{
 };
 use sea_orm::DatabaseConnection;
 use std::io;
-use tokio::{net::TcpListener, signal::ctrl_c};
+use tokio::{net::TcpListener, sync::broadcast};
 
-pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
+pub async fn listen(
+    connection: DatabaseConnection,
+    mut shutdown: broadcast::Receiver<()>,
+) -> io::Result<()> {
     let app = Router::new()
         .route("/files", post(routes::upload::handler))
         .route("/files/{id}/download", post(routes::download::handler))
@@ -18,13 +21,8 @@ pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
     let listener = TcpListener::bind(&CONFIGURATION.listening_address).await?;
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            if let Err(error) = ctrl_c().await {
-                log::error!("Could not wait for crtl+c: {error}");
-                return;
-            };
-
-            log::info!("Received ctrl+c (SIGINT)");
+        .with_graceful_shutdown(async move {
+            let _ = shutdown.recv().await;
         })
         .await
 }

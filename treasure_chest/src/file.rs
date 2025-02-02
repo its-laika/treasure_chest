@@ -5,6 +5,7 @@ use crate::configuration::CONFIGURATION;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Write},
@@ -54,6 +55,37 @@ pub fn store_data(id: &Uuid, content: Vec<u8>) -> Result<PathBuf> {
     }
 
     Ok(file_path)
+}
+
+pub fn get_stored_file_ids() -> Result<Vec<Uuid>> {
+    let mut file_ids = vec![];
+
+    let read_dir =
+        fs::read_dir(CONFIGURATION.file_path.clone()).map_err(Error::ReadingDirectoryFailed)?;
+
+    for dir_entry in read_dir {
+        let file_name = dir_entry
+            .map_err(Error::ReadingDirectoryFailed)?
+            .file_name();
+
+        let file_name = file_name
+            .to_str()
+            .ok_or(Error::ReadingDirectoryFailed(io::Error::new(
+                io::ErrorKind::Other,
+                "Could not get file name",
+            )))?;
+
+        let file_id = Uuid::from_str(file_name).map_err(|_| {
+            Error::ReadingDirectoryFailed(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("File name not a Uuid: {file_name}"),
+            ))
+        })?;
+
+        file_ids.push(file_id);
+    }
+
+    Ok(file_ids)
 }
 
 /// Load data from disk

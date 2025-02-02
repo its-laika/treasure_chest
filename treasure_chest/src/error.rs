@@ -13,6 +13,7 @@ pub enum Error {
     SavingFileFailed(std::io::Error),
     LoadingFileFailed(std::io::Error),
     DeletingFileFailed(std::io::Error),
+    ReadingDirectoryFailed(std::io::Error),
     EncryptionFailed,
     DecryptionFailed,
     KeyInvalid,
@@ -20,6 +21,7 @@ pub enum Error {
     InvalidEncryptionData(String),
     HashingFailure(String),
     HashVerificationFailure(String),
+    BroadcastRecvFailed,
 }
 
 impl fmt::Debug for Error {
@@ -34,6 +36,7 @@ impl fmt::Debug for Error {
             Self::SavingFileFailed(inner) => write!(f, "Saving file failed: {inner}"),
             Self::LoadingFileFailed(inner) => write!(f, "Loading file failed: {inner}"),
             Self::DeletingFileFailed(inner) => write!(f, "Removing file failed: {inner}"),
+            Self::ReadingDirectoryFailed(inner) => write!(f, "Reading directory failed: {inner}"),
             Self::EncryptionFailed => write!(f, "Encryption failed"),
             Self::DecryptionFailed => write!(f, "Decryption failed"),
             Self::KeyInvalid => write!(f, "Key invalid"),
@@ -41,6 +44,7 @@ impl fmt::Debug for Error {
             Self::InvalidEncryptionData(inner) => write!(f, "Invalid encryption data: {inner}"),
             Self::HashingFailure(inner) => write!(f, "Hashing failure: {inner}"),
             Self::HashVerificationFailure(inner) => write!(f, "Hash verification failure: {inner}"),
+            Self::BroadcastRecvFailed => write!(f, "Broadcast recv error"),
         }
     }
 }
