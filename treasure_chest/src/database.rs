@@ -114,6 +114,47 @@ pub async fn get_downloadable_file_ids(
         .map_err(Error::DatabaseOperationFailed)
 }
 
+pub async fn remove_undownloadable_files(database_connection: &DatabaseConnection) -> Result<()> {
+    entity::File::delete_many()
+        .filter(
+            Condition::any()
+                .add(entity::file::Column::DownloadUntil.lt(Utc::now()))
+                .add(
+                    entity::file::Column::Id.in_subquery(
+                        Query::select()
+                            .column(entity::access_log::Column::FileId)
+                            .from(entity::access_log::Entity)
+                            .cond_where(
+                                Condition::all().add(entity::access_log::Column::Successful.eq(1)),
+                            )
+                            .to_owned(),
+                    ),
+                )
+                .add(
+                    entity::file::Column::Id
+                        .in_subquery(
+                            Query::select()
+                                .column(entity::access_log::Column::FileId)
+                                .from(entity::access_log::Entity)
+                                .group_by_col(entity::access_log::Column::FileId)
+                                .cond_having(
+                                    Condition::all().add(
+                                        entity::access_log::Column::FileId
+                                            .count()
+                                            .gte(CONFIGURATION.max_download_tries),
+                                    ),
+                                )
+                                .to_owned(),
+                        )
+                        .to_owned(),
+                ),
+        )
+        .exec(database_connection)
+        .await
+        .map(|_| ())
+        .map_err(Error::DatabaseOperationFailed)
+}
+
 /// Returns whether given `ip` may currently upload a file
 ///
 /// # Arguments

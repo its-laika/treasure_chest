@@ -22,11 +22,9 @@ async fn main() {
     /* Init configuration */
     let connection_string = &CONFIGURATION.connection_string;
 
-    log::info!("Connecting and setting up database (connection timeout is 8 secs)...");
     let database_connection = match setup_database(connection_string).await {
-        Ok(database_connection) => database_connection,
-        Err(error_message) => {
-            log::error!("{}", error_message);
+        Some(database_connection) => database_connection,
+        None => {
             log::error!("Bye.");
             process::exit(1);
         }
@@ -48,7 +46,7 @@ async fn main() {
     let cleanup_shutdown_rx = shutdown_rx.resubscribe();
 
     join_set.spawn(async move {
-        if let Err(error) = cleanup::clean(cleanup_database_connection, cleanup_shutdown_rx).await {
+        if let Err(error) = cleanup::run(cleanup_database_connection, cleanup_shutdown_rx).await {
             log::error!("Cleanup failed: {:?}", error);
         }
     });
@@ -81,8 +79,10 @@ async fn main() {
     log::info!("Bye.");
 }
 
-async fn setup_database(connection_string: &str) -> Result<DatabaseConnection, &str> {
+async fn setup_database(connection_string: &str) -> Option<DatabaseConnection> {
     let mut connect_options = ConnectOptions::new(connection_string);
+
+    log::info!("Connecting and setting up database (connection timeout is 8 secs)...");
 
     connect_options
         .sqlx_logging_level(log::LevelFilter::Debug)
@@ -94,12 +94,14 @@ async fn setup_database(connection_string: &str) -> Result<DatabaseConnection, &
         .max_lifetime(Duration::from_secs(8));
 
     let Ok(database_connection) = Database::connect(connect_options).await else {
-        return Err("Could not connect to database. Bye.");
+        log::error!("Could not connect to database. Bye.");
+        return None;
     };
 
     if Migrator::up(&database_connection, None).await.is_err() {
-        return Err("Could not migrate database");
+        log::error!("Could not migrate database");
+        return None;
     };
 
-    Ok(database_connection)
+    Some(database_connection)
 }
