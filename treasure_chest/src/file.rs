@@ -46,6 +46,13 @@ pub fn store_data(id: &Uuid, content: Vec<u8>) -> Result<PathBuf> {
         return Err(Error::SavingFileFailed(error));
     }
 
+    drop(content);
+
+    if let Err(error) = file.sync_all() {
+        delete(id)?;
+        return Err(Error::SavingFileFailed(error));
+    }
+
     Ok(file_path)
 }
 

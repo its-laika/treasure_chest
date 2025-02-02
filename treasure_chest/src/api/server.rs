@@ -19,7 +19,12 @@ pub async fn listen(connection: DatabaseConnection) -> io::Result<()> {
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
-            let _ = ctrl_c().await;
+            if let Err(error) = ctrl_c().await {
+                log::error!("Could not wait for crtl+c: {error}");
+                return;
+            };
+
+            log::info!("Received ctrl+c (SIGINT)");
         })
         .await
 }
