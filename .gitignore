@@ -1,5 +1,5 @@
 target/
-.vscode/
+.idea/
 .DS_Store
 .env
 config.json
