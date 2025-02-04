@@ -4,13 +4,14 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use laika::shotgun;
 use sea_orm::DatabaseConnection;
 use std::io;
-use tokio::{net::TcpListener, sync::broadcast};
+use tokio::net::TcpListener;
 
 pub async fn listen(
     connection: DatabaseConnection,
-    mut shutdown: broadcast::Receiver<()>,
+    shutdown: shotgun::Receiver<()>,
 ) -> io::Result<()> {
     let app = Router::new()
         .route("/files", post(routes::upload::handler))

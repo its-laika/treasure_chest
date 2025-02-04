@@ -21,7 +21,6 @@ pub enum Error {
     InvalidEncryptionData(String),
     HashingFailure(String),
     HashVerificationFailure(String),
-    BroadcastRecvFailed,
 }
 
 impl fmt::Debug for Error {
@@ -44,7 +43,6 @@ impl fmt::Debug for Error {
             Self::InvalidEncryptionData(inner) => write!(f, "Invalid encryption data: {inner}"),
             Self::HashingFailure(inner) => write!(f, "Hashing failure: {inner}"),
             Self::HashVerificationFailure(inner) => write!(f, "Hash verification failure: {inner}"),
-            Self::BroadcastRecvFailed => write!(f, "Broadcast recv error"),
         }
     }
 }

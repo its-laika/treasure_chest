@@ -1,14 +1,8 @@
-use crate::{
-    database,
-    error::{Error, Result},
-    file,
-};
+use crate::{database, error::Result, file};
+use laika::shotgun;
 use sea_orm::DatabaseConnection;
 use std::time::Duration;
-use tokio::{
-    sync::broadcast::{self, error::TryRecvError},
-    time,
-};
+use tokio::{select, time};
 use uuid::Uuid;
 
 /// The interval in seconds between each cleanup operation.
@@ -20,7 +14,7 @@ const CLEANUP_INTERVAL_SECONDS: u64 = 10 * 60; /* 10 minutes */
 /// # Arguments
 ///
 /// * `database_connection` - A connection to the database.
-/// * `shutdown` - A broadcast receiver to listen for shutdown signals.
+/// * `shutdown` - A shotgun receiver to listen for shutdown signal.
 ///
 /// # Returns
 ///
@@ -28,45 +22,21 @@ const CLEANUP_INTERVAL_SECONDS: u64 = 10 * 60; /* 10 minutes */
 ///   or an error if something goes wrong.
 pub async fn run(
     database_connection: DatabaseConnection,
-    mut shutdown: broadcast::Receiver<()>,
+    shutdown: shotgun::Receiver<()>,
 ) -> Result<()> {
     loop {
-        if !wait(&mut shutdown).await? {
-            return Ok(());
-        }
+        let shutdown = shutdown.clone();
+
+        select! {
+            _ = time::sleep(Duration::from_secs(CLEANUP_INTERVAL_SECONDS)) => (),
+            _ = shutdown => return Ok(()),
+        };
 
         log::info!("Cleaning up outdating files...");
 
         database::remove_undownloadable_files(&database_connection).await?;
         delete_outdated_files(&database_connection).await?;
     }
-}
-
-/// Waits for defined cleanup interval, returning early if `shutdown` is received.
-///
-/// # Arguments
-///
-/// * `shutdown` - A broadcast receiver to listen for shutdown signals.
-///
-/// # Returns
-///
-/// * `Result<bool>` - Returns an Ok result if the wait completes successfully,
-///   with `true` if the wait was not interrupted by a shutdown signal, or `false` otherwise.
-async fn wait(shutdown: &mut broadcast::Receiver<()>) -> Result<bool> {
-    let sleep_time = Duration::from_secs(1);
-
-    for _ in 0..CLEANUP_INTERVAL_SECONDS {
-        /* Prevent locking for 10 mins after a SIGINT like a spin lock */
-        match shutdown.try_recv() {
-            Err(TryRecvError::Empty) => (),
-            Err(_) => return Err(Error::BroadcastRecvFailed),
-            Ok(()) => return Ok(false),
-        };
-
-        time::sleep(sleep_time).await;
-    }
-
-    Ok(true)
 }
 
 /// Deletes outdated files from the file system.

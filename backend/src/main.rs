@@ -1,8 +1,9 @@
 use configuration::CONFIGURATION;
+use laika::shotgun;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::{process, time::Duration};
-use tokio::{signal::ctrl_c, sync::broadcast, task::JoinSet};
+use tokio::{signal::ctrl_c, task::JoinSet};
 
 mod api;
 mod cleanup;
@@ -31,10 +32,10 @@ async fn main() {
     };
 
     let mut join_set = JoinSet::new();
-    let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
+    let (shotgun_tx, shotgun_rx) = shotgun::channel();
 
     let api_database_connection = database_connection.clone();
-    let api_shutdown_rx = shutdown_rx.resubscribe();
+    let api_shutdown_rx = shotgun_rx.clone();
 
     join_set.spawn(async move {
         if let Err(error) = api::listen(api_database_connection, api_shutdown_rx).await {
@@ -43,7 +44,7 @@ async fn main() {
     });
 
     let cleanup_database_connection = database_connection.clone();
-    let cleanup_shutdown_rx = shutdown_rx.resubscribe();
+    let cleanup_shutdown_rx = shotgun_rx.clone();
 
     join_set.spawn(async move {
         if let Err(error) = cleanup::run(cleanup_database_connection, cleanup_shutdown_rx).await {
@@ -62,11 +63,7 @@ async fn main() {
 
         info!("Received ctrl+c (SIGINT)");
 
-        if let Err(error) = shutdown_tx.send(()) {
-            error!("Could not inform about shutdown: {error}");
-            error!("Exiting process. Bye.");
-            process::exit(1);
-        };
+        shotgun_tx.send(());
     });
 
     join_set.join_all().await;
