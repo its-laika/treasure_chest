@@ -1,0 +1,33 @@
+{
+  "tasks": {
+    "dev": "deno run --watch main.ts",
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test"
+  },
+  "imports": {
+    "@angular/animations": "npm:@angular/animations@^19.1.0",
+    "@angular/common": "npm:@angular/common@^19.1.0",
+    "@angular/compiler": "npm:@angular/compiler@19.1.0",
+    "@angular/core": "npm:@angular/core@^19.1.0",
+    "@angular/forms": "npm:@angular/forms@^19.1.0",
+    "@angular/platform-browser": "npm:@angular/platform-browser@^19.1.0",
+    "@angular/platform-browser-dynamic": "npm:@angular/platform-browser-dynamic@^19.1.0",
+    "@angular/router": "npm:@angular/router@^19.1.0",
+    "rxjs": "npm:rxjs@~7.8.0",
+    "tslib": "npm:tslib@^2.3.0",
+    "zone.js": "npm:zone.js@~0.15.0",
+    "@angular-devkit": "npm:@angular-devkit/build-angular@^19.1.5",
+    "@angular/cli": "npm:@angular/cli@^19.1.5",
+    "@angular/compiler-cli": "npm:@angular/compiler-cli@^19.1.0",
+    "@types/jasmine": "npm:@types/jasmine@~5.1.0",
+    "jasmine-core": "npm:jasmine-core@~5.5.0",
+    "karma": "npm:karma@~6.4.0",
+    "karma-chrome-launcher": "npm:karma-chrome-launcher@~3.2.0",
+    "karma-coverage": "npm:karma-coverage@~2.2.0",
+    "karma-jasmine": "npm:karma-jasmine@~5.1.0",
+    "karma-jasmine-html-reporter": "npm:karma-jasmine-html-reporter@~2.1.0"
+  }
+}
