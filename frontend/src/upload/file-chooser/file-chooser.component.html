@@ -1,0 +1,10 @@
+<button mat-flat-button type="file" (click)="onClick()">
+    <mat-icon>upload_file</mat-icon>
+    @if (hasFile()) {
+    Change file
+    } @else {
+    Choose file
+    }
+</button>
+
+<input #fileInput type="file" (change)="onFileSelected($event)">

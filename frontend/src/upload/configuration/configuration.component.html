@@ -1,0 +1,19 @@
+<mat-chip-set>
+    <mat-chip>
+        <mat-icon matChipAvatar>difference</mat-icon>
+        <div>
+            Maximum file size: {{ configuration().BodyMaxSize | tcReadableBytes }}
+        </div>
+    </mat-chip>
+    <mat-chip>
+        <mat-icon matChipAvatar>calendar_month</mat-icon>
+        <div>
+            Availability: {{ configuration().DaysFileAvailable }}
+            @if (configuration().DaysFileAvailable === 1) {
+            day
+            } @else {
+            days
+            }
+        </div>
+    </mat-chip>
+</mat-chip-set>

@@ -1,0 +1,13 @@
+<mat-card class="info-card" appearance="outlined">
+    <mat-card-header>
+        <mat-card-title>
+            {{ file().name || '-'}}
+        </mat-card-title>
+    </mat-card-header>
+    <mat-card-footer class="footer">
+        <mat-chip-set>
+            <mat-chip>{{ file().size | tcReadableBytes }}</mat-chip>
+            <mat-chip>{{ file().type || 'unknown/unknown'}}</mat-chip>
+        </mat-chip-set>
+    </mat-card-footer>
+</mat-card>
