@@ -19,12 +19,20 @@ use std::io::{Error as IoError, ErrorKind};
 use tokio_util::io::StreamReader;
 use uuid::Uuid;
 
+// A struct representing the response for the upload endpoint.
+///
+/// This struct is used to serialize the response containing the file id and
+/// the encryption key.
 #[derive(Serialize)]
 pub struct Response {
     pub id: String,
     pub key: String,
 }
 
+/// Handles the file upload endpoint.
+///
+/// This function processes the upload request, validates the request, stores
+/// the file, and returns the file id and encryption key.
 pub async fn handler(
     State(database_connection): State<DatabaseConnection>,
     headers: HeaderMap,

@@ -4,6 +4,7 @@ use argon2::password_hash::{
     rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
 };
 
+/// A struct representing the Argon2 hashing algorithm.
 pub struct Argon2 {}
 
 impl Hashing for Argon2 {

@@ -18,8 +18,8 @@ const CLEANUP_INTERVAL_SECONDS: u64 = 10 * 60; /* 10 minutes */
 ///
 /// # Returns
 ///
-/// * `Result<()>` - Returns an Ok result if the cleanup process runs successfully,
-///   or an error if something goes wrong.
+/// * [`Ok<()>`] on successful cleanup process
+/// * [`Err<Error>`] on error
 pub async fn run(
     database_connection: DatabaseConnection,
     shutdown: shotgun::Receiver<()>,
@@ -47,8 +47,8 @@ pub async fn run(
 ///
 /// # Returns
 ///
-/// * `Result<()>` - Returns an Ok result if the cleanup process runs successfully,
-///   or an error if something goes wrong.
+/// * [`Ok<()>`] on successful cleanup
+/// * [`Err<Error>`] on error
 async fn delete_outdated_files(database_connection: &DatabaseConnection) -> Result<()> {
     let downloadable_file_ids = database::get_downloadable_file_ids(database_connection).await?;
 

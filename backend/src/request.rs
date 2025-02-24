@@ -26,9 +26,8 @@ static FILE_NAME_REGEX: LazyLock<Regex> =
 ///
 /// # Returns
 ///
-/// * [`Ok`]\(_ip_) - Request Ip (header value)  
-/// * [`Err`]\([`Error::IpHeaderInvalid`]) - Ip header not valid (client error)
-/// * [`Err`]\([`Error::IpHeaderMissing`]) - Ip header not set (probably proxy misconfiguration)
+/// * [`Ok<String>`] on success, containing the request Ip  
+/// * [`Err<Error>`] on error
 pub fn get_request_ip(headers: &HeaderMap) -> Result<String> {
     Ok(headers
         .get(CONFIGURATION.ip_header_name.clone())

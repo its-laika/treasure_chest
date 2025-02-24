@@ -30,8 +30,8 @@ pub struct Metadata {
 ///
 /// # Returns
 ///
-/// * [`Ok`]\([`PathBuf`]) - path to file
-/// * [`Err`]\([`Error::SavingFileFailed`]) - if file couldn't be saved
+/// * [`Ok<PathBuf>`] on success with file path
+/// * [`Err<Error>`] on error
 pub fn store_data(id: &Uuid, content: Vec<u8>) -> Result<PathBuf> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(id.to_string());
@@ -57,6 +57,14 @@ pub fn store_data(id: &Uuid, content: Vec<u8>) -> Result<PathBuf> {
     Ok(file_path)
 }
 
+/// Retrieves the Ids of all stored files.
+///
+/// This function reads the directory and collects the UUIDs of all files stored.
+///
+/// # Returns
+///
+/// * [`Ok<Vec<Uuid>>`] - A vector containing the UUIDs of all stored files.
+/// * [`Err<Error>`] on error
 pub fn get_stored_file_ids() -> Result<Vec<Uuid>> {
     let mut file_ids = vec![];
 
@@ -96,8 +104,8 @@ pub fn get_stored_file_ids() -> Result<Vec<Uuid>> {
 ///
 /// # Returns
 ///
-/// * [`Ok`]\([`Vec<u8>`]) - file content
-/// * [`Err`]\([`Error::LoadingFileFailed`]) - if file couldn't be loaded
+/// * [`Ok<Vec<u8>>`] on success, containing file content
+/// * [`Err<Error>`] on error
 pub fn load_data(id: &Uuid) -> Result<Vec<u8>> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(id.to_string());
@@ -123,8 +131,9 @@ pub fn load_data(id: &Uuid) -> Result<Vec<u8>> {
 /// * `id` - File id
 ///
 /// # Returns
-/// * [`Ok`]\(`()`) - file doesn't exist (anymore)  
-/// * [`Err`]\([`Error::DeletingFileFailed`]) - file couldn't be deleted
+///
+/// * [`Ok<()>`] ensuring file doesn't exist (anymore)  
+/// * [`Err<Error>`] on error
 pub fn delete(id: &Uuid) -> Result<()> {
     let mut file_path = CONFIGURATION.file_path.clone();
     file_path.push(id.to_string());

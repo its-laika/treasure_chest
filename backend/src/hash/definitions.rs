@@ -10,8 +10,8 @@ pub trait Hashing {
     ///
     /// # Returns
     ///
-    /// * [`Ok`]\([`String`]) - Hash
-    /// * [`Err`]\([`Error::HashingFailure`]) - On hashing failure
+    /// * [`Ok<String>`] on success, containing the hash
+    /// * [`Err<Error>`] on error
     fn hash(data: &[u8]) -> Result<String>;
 
     /// Verifies given `data` against `hash`
@@ -23,8 +23,8 @@ pub trait Hashing {
     ///
     /// # Returns
     ///
-    /// * [`Ok`]\(true) - `data` matches `hash`
-    /// * [`Ok`]\(false) - `data` *does not* match `hash`
-    /// * [`Err`]\([`Error::HashVerificationFailure`]) - On verification failure
+    /// * [`Ok<true>`] on `data` matching `hash`
+    /// * [`Ok<false>`] on `data` **not** matching `hash`
+    /// * [`Err<Error>`] on error
     fn verify(data: &[u8], hash: &str) -> Result<bool>;
 }

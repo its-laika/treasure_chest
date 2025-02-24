@@ -17,8 +17,8 @@ use base64::Engine;
 ///
 /// # Returns
 ///
-/// * [`Ok`]\([`Vec<u8>`]) - decoded and validated key  
-/// * [`Err`]\([`Error::KeyInvalid`]) - given `encoded_key` is not valid
+/// * [`Ok<Vec<u8>>`] containing decoded and validated key  
+/// * [`Err<Error>`] on error
 pub fn get_validated_key(encoded_key: &str, hash: &str) -> Result<Vec<u8>> {
     let key = BASE64_URL_SAFE
         .decode(encoded_key)

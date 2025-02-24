@@ -24,9 +24,9 @@ struct CountResult {
 ///
 /// # Returns
 ///
-/// [`Ok`]\([`Some`]\([`entity::file::Model`])): file exists and may be downloaded,  
-/// [`Ok`]\([`None`]): file doesn't exist or isn't downloadable anymore  
-/// [`Err`]\([`Error::DatabaseOperationFailed`]) on error
+/// * [`Ok<Some<Model>>`] containing downloadable file model
+/// * [`Ok<None>`] on file not existing or outdated
+/// * [`Err<Error>`] on error
 pub async fn get_downloadable_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
@@ -74,8 +74,8 @@ pub async fn get_downloadable_file(
 ///
 /// # Returns
 ///
-/// [`Ok`]\([`Vec`]\([`uuid::Uuid`])): ids of all files that can still be downloaded,
-/// [`Err`]\([`Error::DatabaseOperationFailed`]) on error
+/// * [`Ok<Vec<Uuid>>`] containing ids of all files that can still be downloaded
+/// * [`Err<Error>`] on error
 pub async fn get_downloadable_file_ids(
     database_connection: &DatabaseConnection,
 ) -> Result<Vec<Uuid>> {
@@ -114,6 +114,21 @@ pub async fn get_downloadable_file_ids(
         .map_err(Error::DatabaseOperationFailed)
 }
 
+/// Removes undownloadable files from the database.
+///
+/// This function deletes files that are either past their download expiration
+/// date, have been successfully downloaded, or have exceeded the maximum
+/// number of allowed download attempts.
+///
+/// # Arguments
+///
+/// * `database_connection` - A `DatabaseConnection` instance used to interact
+///   with the database.
+///
+/// # Returns
+///
+/// * [`Ok<()>`] on success
+/// * [`Err<Error>`] on error
 pub async fn remove_undownloadable_files(database_connection: &DatabaseConnection) -> Result<()> {
     entity::File::delete_many()
         .filter(
@@ -164,9 +179,9 @@ pub async fn remove_undownloadable_files(database_connection: &DatabaseConnectio
 ///
 /// # Returns
 ///
-/// [`Ok`]\(`true`): Client may upload a file  
-/// [`Ok`]\(`false`): Client must not upload a file at this time  
-/// [`Err`]\([`Error::DatabaseOperationFailed`]) on error
+/// * [`Ok<true>`] if client may upload a file  
+/// * [`Ok<false>`] if client must not upload a file at this time  
+/// * [`Err<Error>`] on error
 pub async fn is_upload_limit_reached(
     database_connection: &DatabaseConnection,
     ip: &str,
@@ -202,9 +217,8 @@ pub async fn is_upload_limit_reached(
 ///
 /// # Returns
 ///
-/// * [`Ok`]\(`()`) - file stored
-/// * [`Error`]\([`Error::DateCalculationFailed`]) - Could not calculate `download_until`
-/// * [`Error`]\([`Error::DatabaseOperationFailed`]) - Saving to database failed
+/// * [`Ok<()>`] on success
+/// * [`Err<Error>`] on error
 pub async fn store_file(
     database_connection: &DatabaseConnection,
     id: &Uuid,
@@ -245,8 +259,8 @@ pub async fn store_file(
 ///
 /// # Returns
 ///
-/// * [`Ok`]\(`()`) - access log entry stored
-/// * [`Error`]\([`Error::DatabaseOperationFailed`]) - Saving to database failed
+/// * [`Ok<()>`] on success
+/// * [`Err<Error>`] on error
 pub async fn store_access_log(
     database_connection: &DatabaseConnection,
     ip: &str,

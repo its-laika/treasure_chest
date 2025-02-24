@@ -15,11 +15,20 @@ use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use uuid::Uuid;
 
+/// A struct representing the request body for the download endpoint.
+///
+/// This struct is used to deserialize the JSON request body containing the
+/// key needed to decrypt the requested file.
 #[derive(Deserialize)]
 pub struct RequestBody {
     pub key: String,
 }
 
+/// Handles the file download endpoint.
+///
+/// This function processes the download request, validates the key, logs the
+/// access, decrypts the file, and returns the file content along with the
+/// appropriate headers.
 pub async fn handler(
     State(database_connection): State<DatabaseConnection>,
     id: Path<Uuid>,

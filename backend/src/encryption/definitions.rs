@@ -5,9 +5,26 @@ use crate::error::Result;
 /// Encoded data can be stored safely.
 pub trait Encoding<T> {
     /// Encodes data so that it can be stored.
+    ///
+    /// # Consumes
+    ///
+    /// * self
+    ///
+    /// # Returns
+    ///
+    /// * Encoded data
     fn encode(self) -> Vec<u8>;
 
     /// Decodes previously encoded data so that it can be decrypted later.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - Encoded data to decode into `self`
+    ///
+    /// # Returns
+    ///
+    /// * [`Ok<self>`] on success
+    /// * [`Err<Error>`] on error
     fn decode<TI: IntoIterator<Item = u8>>(data: TI) -> Result<T>;
 }
 
@@ -22,11 +39,12 @@ pub trait Encryption<T> {
     ///
     /// # Returns
     ///
-    /// * Err([`Error`]) on encryption failure
-    /// * Ok(`(encryption data, decryption key)`) on success
+    /// * [`Ok<(T, Vec<u8>)>`] on success, containing (Self, decryption key)
+    /// * [`Err<Error>`] on error
     fn encrypt<TI: IntoIterator<Item = u8>>(plain: TI) -> Result<(T, Vec<u8>)>;
 
     // Encrypts plain data with given key and returns encryption-data.
+    ///
     ///
     /// # Arguments
     ///
@@ -35,8 +53,8 @@ pub trait Encryption<T> {
     ///
     /// # Returns
     ///
-    /// * Err([`Error`]) on encryption failure
-    /// * Ok(`encryption data`) on success
+    /// * [`Ok<Vec<u8>>`] on success, containing encrypted data
+    /// * [`Err<Error>`] on error
     fn encrypt_with_key<TI: IntoIterator<Item = u8>>(plain: TI, key: &[u8]) -> Result<T>;
 
     /// Decrypts data with given key.
@@ -47,7 +65,7 @@ pub trait Encryption<T> {
     ///
     /// # Returns
     ///
-    /// * Err([`Error`]) on decryption failure
-    /// * Ok(`decrypted data`) on success
+    /// * [`Ok<Vec<u8>>`] on success with decrypted data
+    /// * [`Err<Error>`] on error
     fn decrypt(self, key: &[u8]) -> Result<Vec<u8>>;
 }
