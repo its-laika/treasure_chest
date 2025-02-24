@@ -14,9 +14,9 @@ pub async fn listen(
     shutdown: shotgun::Receiver<()>,
 ) -> io::Result<()> {
     let app = Router::new()
-        .route("/files", post(routes::upload::handler))
-        .route("/files/{id}/download", post(routes::download::handler))
-        .route("/configuration", get(routes::configuration::handler))
+        .route("/api/files", post(routes::upload::handler))
+        .route("/api/files/{id}/download", post(routes::download::handler))
+        .route("/api/configuration", get(routes::configuration::handler))
         .with_state(connection);
 
     let listener = TcpListener::bind(&CONFIGURATION.listening_address).await?;
