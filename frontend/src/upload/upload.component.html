@@ -1,35 +1,6 @@
-@let configuration = config();
-@let uploadedFile = file();
-@let canUpload = uploadAllowed();
-
-<h1>Upload new file</h1>
-
-<div class="container">
-    @if (configuration !== null) {
-    <tc-configuration [configuration]="configuration"></tc-configuration>
-    }
-
-    @if (uploadedFile) {
-    <tc-file-info [file]="uploadedFile"></tc-file-info>
-    }
-
-    <div class="buttons">
-        <tc-file-chooser (file)="onFile($event)"></tc-file-chooser>
-
-        @if (!uploadedFile || canUpload) {
-        <button mat-flat-button type="file" (click)="onUploadClick()" [disabled]="!canUpload">
-            <mat-icon>cloud_upload</mat-icon>
-            Upload file
-        </button>
-        } @else {
-        <button mat-flat-button type="file" (click)="onUploadClick()" disabled="true">
-            <mat-icon>cloud_upload</mat-icon>
-            File too large.
-        </button>
-        }
-    </div>
-</div>
-
-<p>
-    Some explaination about what this does yada yada
-</p>
+@let file = encryptedFile();
+@if (file) {
+<tc-upload-information [file]="file"></tc-upload-information>
+} @else {
+<tc-file-uploader (encryptedFile)="onEncryptedFile($event)"></tc-file-uploader>
+}

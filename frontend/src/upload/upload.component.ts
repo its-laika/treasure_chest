@@ -1,15 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
-import { HttpService } from '../http/http.service';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Configuration } from '../http/http.models';
-import { ConfigurationComponent } from "./configuration/configuration.component";
-import { FileInfoComponent } from './file-info/file-info.component';
-import { FileChooserComponent } from './file-chooser/file-chooser.component';
+import { MatIconModule } from '@angular/material/icon';
+import { UploadResponse } from '../http/http.models';
+import { FileUploaderComponent } from "./file-uploader/file-uploader.component";
+import { UploadInformationComponent } from './upload-information/upload-information.component';
 
 @Component({
   selector: 'tc-upload',
@@ -19,42 +16,16 @@ import { FileChooserComponent } from './file-chooser/file-chooser.component';
     MatIconModule,
     MatCardModule,
     MatChipsModule,
-    ConfigurationComponent,
-    FileInfoComponent,
-    FileChooserComponent,
+    FileUploaderComponent,
+    UploadInformationComponent,
   ],
   templateUrl: './upload.component.html',
   styleUrl: './upload.component.scss'
 })
 export class UploadComponent {
-  private readonly httpService = inject(HttpService);
+  protected readonly encryptedFile = signal<UploadResponse | null>(null);
 
-  protected readonly config = signal<Configuration | null>(null);
-  protected readonly file = signal<File | null>(null);
-  protected readonly uploadAllowed = computed(() => {
-    const configuration = this.config();
-    const file = this.file();
-
-    return !!configuration && !!file && file.size <= configuration.BodyMaxSize;
-  });
-
-  constructor() {
-    this.httpService.loadOptions()
-      .pipe(takeUntilDestroyed())
-      .subscribe(this.config.set);
-  }
-
-
-  protected onFile(file: File) {
-    this.file.set(file);
-  }
-
-  protected onUploadClick() {
-    const file = this.file();
-    if (!file) {
-      return;
-    }
-
-    this.httpService.uploadFile(file).subscribe(result => console.log(result));
+  protected onEncryptedFile(encryptedFile: UploadResponse) {
+    this.encryptedFile.set(encryptedFile);
   }
 }
