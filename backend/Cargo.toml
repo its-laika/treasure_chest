@@ -16,10 +16,10 @@ config = "0.15.8"
 entity = { path = "entity" }
 env_logger = "0.11.6"
 futures = "0.3"
-log = "0.4.25"
+log = "0.4.26"
 migration = { path = "migration" }
 regex = "1.11.1"
-sea-orm = { version = "1.1.5", features = [
+sea-orm = { version = "1.1.6", features = [
     "macros",
     "runtime-tokio-rustls",
     "sqlx-mysql",
@@ -31,4 +31,4 @@ serde_json = "1.0"
 laika = { version = "0.1.4", features = ["shotgun"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["io"] }
-uuid = { version = "1.13.1", features = ["v4"] }
+uuid = { version = "1.14.0", features = ["v4"] }
